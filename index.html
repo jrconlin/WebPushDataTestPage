@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta charset="utf-8" />
+    <title>Web Push Client</title>
+    <script src="webpush.js"></script>
+  </head>
+  <body>
+    <h1>Web Push Client</h1>
+    <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/">
+    <br />
+    <label for="salt">Salt:</label><input name="salt" value="a4UV9oUyAtX6ztg4CNiLww">
+    <br />
+    <label for="remoteKey">Remote Key:</label><textarea name="remoteKey" >BA2_Pqm4UzUjQ5P7fzP_fkr-4YCoCRn8GCc8l0CKStJ55eDDYI0isIBIbRiRiBEChu-5wxmSE8zOxJdZDaXN_iY</textarea>
+    <br />
+    <label for="data">Data:</label><textarea name="data">Mary had a little lamb, with some fresh mint jelly</textarea>
+    <div id="localKeyPub">Local Key (public):<span class="value"></span></div>
+    <div id="localKeyPri">Local Key (private):<span class="value"></span></div>
+    <div id="sharedKey">Shared Key:<span class="value"></span></div>
+    <div id="gcmB">HKDF generated Bits:<span class="value"></span></div>
+    <div id="nonce">Derived Nonce:<span class="value"></span></div>
+    <div id="iv">IV Nonce:<span class="value"></span></div>
+    <div id="output">Output:<span class="value"></span></div>
+    <div id="curl">Curl:<span class="value"></span></div>
+  </body>
+  <script>
+var endpoint = document.getElementsByName("endpoint")[0].value;
+var salt = document.getElementsByName("salt")[0].value;
+var remoteKey = document.getElementsByName("remoteKey")[0].value;
+var data = document.getElementsByName("data")[0].value;
+/*
+var hkdf_test = new hkdf(base64url.decode(salt),
+                         base64url.decode(remoteKey));
+hkdf_test.generate(NONCE_INFO, 12).then(result =>
+        console.debug("hkdf_test: ", base64url.encode(result)));
+*/
+webpush({endpoint: endpoint, p256dh: base64url.decode(remoteKey)}, data,
+        base64url.decode(salt));
+  </script>
+
+</html>
