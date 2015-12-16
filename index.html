@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta charset="utf-8" />
+    <title>Web Push Data Encryption Test Page</title>
+    <link href="style.css" rel="stylesheet" />
+    <link href="manifest.json" rel="manifest" />
+  </head>
+  <body>
+  <h1>Web Push Data Encryption Test Page</h1>
+    <div class="errMsg hidden"></div>
+    <div class="intro">
+    <h2>Introduction</h2>
+    <p>The <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API">Push APIs</a>
+    (also known as Web-Push) provide the ability for Application Servers
+    (App Servers) to send up to 4 Kilobites of data to applications.
+    In order to do this safely, the data needs to be encrypted so that the
+    Push Servers can't easily read it. To make sure that data is properly
+    encrypted, the remote browser will decrypt it and hand your application
+    the data.</p>
+    <p>Unfortunately, such security comes at a cost. The method of encryption
+    used can be a bit tricky and confusing to folks that may not be intimately
+    familiar with how this should work. This page attempts to provide insight
+    into how the encryption should work. It's a "known working case" that
+    tries to show all the moving pieces so that library authors or application
+    developers can get started.</p>
+    <p>This page will create a live Web Push connection to itself. You can
+    use it to test your code or library. It may be useful to open the
+    Web Debugging Console (Ctrl+Shift+K on Firefox) and note the messages
+    being generated in the console log.</p>
+    <p>If you've not already done so, I strongly recommend you consult
+    <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Using_the_Push_API">Using
+    the Push API</a> on the Mozilla Developer Network.
+    This will help explain what push notifications are and how to use a simple
+    version that does not contain data.</p>
+    <p>This page will presume you're familiar with using Push notifications
+    and want to start using the experimental encrypted data payloads. Please
+    note that since this feature is currently experimental, there is very
+    limited library support. This page exists to transparently show the
+    keys and values used to successfully encrypt data for delivery.</p>
+    <div id="regSec" class="ctrl hidden">
+    First, let's register the service worker, since it's
+    not already present.<br>
+    <button id="regButton">Register the Service Worker...</button>
+    </div>
+    </div>
+    <div class="section">
+    <h2>1. Get the Subscription:</h2>
+    <p>These elements are provided to the WebApp from the
+       <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
+
+    call. These values should be relayed directly to your back-end App
+    Server via your app. Never send this information through the Push
+    Servers!</p>
+    <div class="ctrl">
+    <button id="subscribe" disabled>Get subscription info</button>
+    </div>
+    <div id="endpoint">
+    <div class="title">endpoint</div>
+    <div class="description">The <code>subscription.endpoint</code> is
+        the URI where you
+        should POST the encrypted message content. To make things easier,
+        the page will fetch one for itself. Feel free to replace this with
+        a different endpoint if you wish and press the "Send Data" button below
+        to try it out.
+    </div>
+    <textarea name="endpoint" value="http://example.com/" class="value endpoint"></textarea>
+    </div>
+    <div id="remoteKey">
+    <div class="title">p256dh Key</div>
+    <div class="description">The "p256dh" key is the ECDH curve p256 Diffie Hellman key
+        returned as part of the subscription. You use
+        <code>subscription.getKey('p256dh')</code> to retrieve this value</div>
+    <textarea class="value remote_key" name="remoteKey" ></textarea>
+    </div>
+    </div>
+    <div class="section">
+    <h2>2. Generate the Content</h2>
+    <p>These are normally the things you enter per encryption request.</p>
+    <div id="salt">
+    <div class="title">Salt:</div>
+    <div class="description">The salt is an arbitrary array of bytes the
+        App Server generates for each outbound encrypted request.
+        This should change for every request, but it can be helpful for
+        library authors to see the same salt value.</div>
+    <input name="salt" class="salt value" value="salt">
+    </div>
+    <div id="data">
+    <div class="title">Data:</div>
+    <div class="description">This is your data. For this demonstration, we're going
+    to presume that it's a string, but the data can be
+    <a href="https://w3c.github.io/push-api/#pushmessagedata-interface">any format</a>.
+    Just be sure that the service worker 'push' event handler knows how to read it.</div>
+    <textarea name="data">This is test data.
+</textarea>
+    <div class="data_ok hidden">All good! The service worker managed to get 
+        and understand the data.</div>
+    <div class="errMsg hidden">No good. There was a problem with the service worker
+        handling the data.<br>
+        Check the console and retry to see if it's still a problem.
+        Also try Copying the "<a href="#curl">curl</a>" buffer below into a 
+        command line. If things work, this text
+        will turn green.</div>
+    </div>
+    <div class="ctrl">
+    Ok, we're ready to <button id="encrypt" disabled>Encrypt the data</button>
+    </div>
+</div>
+<div class="section">
+    <h2>3. Generate the Local Key:</h2>
+    <p>These items (plus the <span class="salt">Salt</span>) are unique per
+    encryption, and usually generated "on the fly" by the various algorithms.
+    Key negotiation requires the generation of a <b class="local_key">Local Key</b>.
+    The <b>Local Key</b> is an arbitrary key pair made for this specific
+    exchange and used to derive bits from the <b class="remote_key">p256dh</b> key.
+    </p>
+    <div id="localKeyPri">
+        <div class="title">Local Key (private):</div>
+        <div class="description">The private portion of the Local Key.
+        Unfortunately, it's not easy to read this from a provided value.
+        </div>
+        <div class="value wrap"></div>
+    </div>
+    <div id="localKeyPub">
+        <div class="title">Local Key (public):</div>
+        <div class="description">This key is temporary, but the public key needs to be
+        sent as the <span class="def">Encryption Key</span></div>
+        <div class="value"></div>
+    </div>
+    <div id="local_key">
+        <div class="title">Local Key (public, raw):</div>
+        <div class="description">This is the same public <b class="local_key">local key</b>,
+            only formatted in "raw" form. This is the byte array that
+            is used for deriving the <span class="nonce">nonce</span></div>
+        <div class="value local_key"></div>
+    </div>
+</div>
+<div class="section">
+    <h2>4. Encrypt the Message:</h2>
+    <p>These items are the various intermediary and final elements used to
+    generate the encryption key.</p>
+    <div id="sharedKey">
+        <div class="title">Shared Key:</div>
+        <div class="description">AES-GCM key material derived from the private <b class="local_key">local key</b> and public <b class="remote_key">p256dh key</b>. This comes from a <code>WebCrypto.deriveBits</code> call in <code>webpush.js</code></div>
+        <div class="value"></div>
+    </div>
+        <div id="gcmB">
+            <div class="title">Encryption Key</div>
+            <div class="description">HKDF generated bits derived from the shared key 
+            material, which is a <acronym title='The string "Content-Encoding: aesgcm128"'>
+            static string</acronym> run through the KDF which has been seeded from the 
+            <span class="salt">salt</span> and the <span class="local_key"> localKey</span>.
+            </div>
+            <div class="value"></div>
+        </div>
+        <div id="nonce">
+            <div class="title">Derived Nonce:</div>
+            <div class="description">The "nonce" here is derived from a <acronym 
+                title='The string used is "Content-Encoding: nonce"'>static
+               string</acronym>, run through the KDF which has been seeded from the
+               <span class="salt">salt</span>
+                and the <span class="local_key"> localKey</span>.</div>
+            <div class="value nonce"></div>
+        </div>
+        <div id="iv">
+            <div class="title">Initialization Vector:</div>
+            <div class="description">The AES-GCM Initialization Vector.
+            This is a bit more complex, as it's comprised of a known chunk
+            created through the same KDF that created the <span class="nonce">
+            nonce</span>, as well the index number of the chunk of data
+            we're encoding.</div>
+            <div class="value"></div>
+        </div>
+    </div>
+<div class="section">
+    <h2>5. Send the Message:</h2>
+    <p>These are the outputs. You can cut and paste the <b>Curl</b>
+    content and watch the Web Console to see the message be received and
+    handled by the Service Worker.</p>
+    <a name="curl">
+    <div id="curl">
+        <div class="title">Curl:</div>
+        <div class="description">This is a proxy for your library. Please
+        note that the input for this is a binary blob. In this case, I'm
+        attempting to write the data out to a file, then read it in with
+        curl. Transcoding the data to base64 or some other encoding mechanism
+        will not work.</div>
+        <div class="value wrap"></div>
+        <p>If you don't have curl, or don't feel like cutting and pasting, 
+        you can <button id="refresh" disabled>Send the Data</button> and this
+        page will do it for you.</p>
+    <div id="success" class="hidden">
+    <p> If all goes well, you should see something like the following pop up on your screen.
+    <div id="fakeNotif">
+    <div class="close">X</div>
+    <div class="fntitle">Got message</div>
+    <img src="icon.png">
+    <div class="msg"></div>
+    <div class="via">via YourSite.foo</div>
+    </div>
+    </p>
+    </div>
+        <div class="data_ok hidden">All good! The service worker
+            managed to get and understand the data.</div>
+        <div class="errMsg hidden">No good. There was a problem
+            with the service worker handling the data.<br>
+        Check the console and retry to see if it's still a problem.
+        </div>
+    </div>
+    <div id="osalt">
+        <div class="title">Salt:</div>
+        <div class="description">The salt value sent in the "Encryption"
+        header.</div>
+        <div class="value salt wrap"></div></div>
+    <div id="odh">
+        <div class="title">dh:</div>
+        <div class="description">Diffie-Hellman key sent in the "Encryption-Key"
+        header.</div>
+        <div class="value wrap local_key"></div>
+    </div>
+    <div id="odata">
+        <div class="title">data:</div>
+        <div class="description">This is the raw, encrypted data represented
+        as hexidecimal byte pairs. If you wish, you can compare these with
+        whatever byte editor you have (e.g. <code>xxd</code>
+        on Linux systems) to verify that the data is correct.
+        </div>
+        <div class="value"></div>
+        <!--div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div -->
+    </div>
+</div>
+<div class="footer">
+    <p>Source available on <a href="https://github.com/jrconlin/WebPushDataTestPage">GitHub</a>. Licensed under <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License v.2.0</a></p>
+</div>
+  </body>
+  <script src="FileSaver.js"></script>
+  <script src="fetch.js"></script>
+  <script src="base64.js"></script>
+  <script src="webpush.js"></script>
+  <script>
+'use strict';
+
+function show_ok(state, msg) {
+    let o = document.getElementById("success");
+    if (msg == false) {
+        msg = document.getElementsByName("data")[0].value;
+    }
+    o.getElementsByClassName("msg")[0].textContent = msg;
+    o.getElementsByClassName("via")[0].textContent = `via ${document.location.host}`;
+    if (state) {
+        o.classList.remove("hidden")
+    } else {
+        o.classList.add("hidden")
+    }
+}
+
+function notify(title, body) {
+    let notif = new Notification(title, 
+        {body: body,
+         icon: "icon.png",
+        });
+}
+
+function show_err(errMsg) {
+    show_ok(false);
+    let err = document.getElementsByClassName("errMsg");
+    for (let i=0; i<err.length; i++) {
+        if (errMsg == false) {
+            err[i].classList.add("hidden");
+            err[i].innerHTML='';
+        } else {
+            err[i].innerHTML = errMsg;
+            err[i].classList.remove("hidden");
+        }
+    }
+    return;
+}
+
+
+function register() {
+    /* Register the service worker.
+       Remember, the service worker script must be served either from
+       "localhost" or from a TLS secured site (e.g. https://example.com)
+
+     */
+    navigator.serviceWorker.getRegistration()
+    .then( function(registration) {
+        if (!registration || !navigator.serviceWorker.controller) {
+            navigator.serviceWorker.register("sw.js")
+            .then(function() {
+                console.log("Service worker loaded, reloading");
+                window.location.reload();
+            })
+            .catch(function(err) {
+                if (err.name == "SecurityError" || err.name == "NotSupportedError") {
+                    show_err("Could not start.<br>This page requires a secure " +
+                             "server. (e.g. one that can serve https:// pages). " +
+                             "<br>The page can also be served from `localhost'.");
+                    return
+                }
+                console.error("Error", err);
+            });
+        }
+        return registration;
+    })
+    .catch(function(err) {
+        console.error("Registration Error:", err);
+        let msg = "Could not start.<br> ";
+        show_err(msg);
+    });
+
+}
+
+function subscribe() {
+    /* Fetch an endpoint.
+
+       Yes, this could be a continuation of the above. I've broken it out
+       a little purely to make the page a little less "magical" about what
+       it's doing.
+    */
+    navigator.serviceWorker.getRegistration()
+        .then( function(registration){
+            /* The service worker script has been loaded, so
+               now we need to register for an endpoint.
+
+               Normally, you only need to register once, the first
+               time that you ever load a given app or page.
+
+            */
+            console.debug("Registering...", registration);
+            // Get the subscription info. 
+            registration.pushManager.subscribe({
+                // Set this to be "true" if you're only displaying
+                // the data to the user. Set it to "false" if you
+                // want to use this notification internally and not
+                // display a message.
+                userVisibleOnly: false,
+            })
+            .then(function(subscription_info) {
+                if (! subscription_info.endpoint) {
+                    console.error("Subscription doesn't have an " +
+                                  "endpoint. Aborting.");
+                    let err = new Error();
+                    err.name = "NoEndpoint";
+                    err.message = "Subscription does not have an endpoint";
+                    throw err;
+                }
+                if (! subscription_info.getKey) {
+                    console.error("Subscription doesn't allow " +
+                                  "data encryption. Aborting.");
+                    let err = new Error();
+                    err.name = "NoData";
+                    err.message = "Subscription does not allow data";
+                    throw err;
+                }
+                output('endpoint', subscription_info.endpoint);
+                output('remoteKey',
+                    base64url.encode(subscription_info.getKey('p256dh')));
+                output('salt',
+                       base64url.encode(crypto.getRandomValues(
+                                            new Uint8Array(16))));
+                try {
+                    let authKey = subscription_info.getKey('auth');
+                    if (authKey) {
+                        console.debug ("Auth key: ",
+                            base64url.encode(subscription_info.getKey('auth')));
+                    }
+                } catch (e) {
+                    let err = new Error();
+                    // This page follows the latest specification.
+                    // It's been tested against Firefox 45+
+                    err.name = "OldVersion";
+                    err.message = "This browser version doesn't use the latest "+
+                        "encryption model, and therefore won't work.";
+                    //throw err;
+                }
+                document.getElementById("encrypt").disabled = false;
+                return subscription_info.endpoint;
+                
+            })
+            .catch(function(err) {
+                console.error("ERROR: ", err);
+                show_err(err.message);
+            });
+        })
+    .catch(function(err) {
+        if (err.name == "SecurityError" || err.name == "NotSupportedError") {
+            show_err("Could not start.<br>This page requires a secure " +
+                     "server. (e.g. one that can serve https:// pages). " +
+                     "<br>The page can also be served from `localhost'.");
+            return
+        }
+        console.error("Registration Error:", err);
+        let msg = "Could not start.<br> ";
+        show_err(msg);
+    });
+};
+
+
+function encr(remoteKey) {
+    /* Fetch & fill various fields, attempt to create a message and send
+       it to yourself.
+    */
+    var endpoint = document.getElementsByName("endpoint")[0].value;
+    var salt = base64url.decode(document.getElementsByName("salt")[0].value);
+    if (!salt) {
+        return;
+    }
+    if (! remoteKey) {
+        remoteKey = document.getElementsByName("remoteKey")[0].value;
+    }
+    var data = document.getElementsByName("data")[0].value;
+    let rKey = base64url.decode(remoteKey);
+    
+    var encr = webpush({endpoint: endpoint,
+                        p256dh: rKey},
+                        data,
+                        salt)
+        .then(options => {
+                // Populate the extra fields
+                output('osalt', base64url.encode(options.salt));
+                output('odh', base64url.encode(options.dh));
+                let rawStr = '';
+                let outStr = '';
+                // Construct the curl. Remember, this needs to
+                // write a binary file first, then have curl read that file.
+                // This is because putting the data "inline" can fail.
+                let sbody = '';
+                let ebody = '';
+                let cbody = '';
+                for (let k in options.payload){
+                    let ik = parseInt(k);
+                    let ij = parseInt(options.payload[k]);
+                    let cj = ("00" + ij.toString(16)).slice(-2, 4);
+                    sbody += `\\x${cj}`;
+                    cbody += String.fromCodePoint(ij);
+                    ebody += cj;
+                    if ((ik + 1) % 2 == 0) {
+                        ebody += " ";
+                    }
+                    if ((ik + 1) % 16 == 0) {
+                        ebody += "<br>";
+                    }
+                }
+                outStr += 'echo -ne "' + sbody + '" > encrypted.data;';
+                // dump the raw curl to console.log. This is useful for
+                // folks doing device work.
+                rawStr = outStr;
+                rawStr += `curl -v -X ${options.method} ${options.endpoint} `;
+                rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
+                    base64url.encode(options.dh) + '"';
+                rawStr += ' -H "encryption: keyid=p256dh;salt=' +
+                    base64url.encode(options.salt) + '"';
+                rawStr += ' -H "content-encoding: aesgcm128"';
+                rawStr += ' --data-binary @encrypted.data';
+                console.log(rawStr);
+                // outStr is the styled version, which is easier for humans
+                outStr += `\ncurl -v -X ${options.method} ` +
+                    ` <span class="endpoint">${options.endpoint}</span> `;
+                outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
+                    `class="local_key">${base64url.encode(options.dh)}</span>"`;
+                outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
+                    `class="salt">${base64url.encode(options.salt)}</span>"`;
+                outStr += ' -H "content-encoding: aesgcm128"';
+                outStr += ' -H "TTL: 60"';
+                outStr += ' --data-binary @encrypted.data';
+                output('curl', outStr);
+                output('odata', ebody);
+                //var blob = new Blob([cbody],
+                //    {type: 'application/octet-binary'});
+                var send_options = options;
+                let refresh = document.getElementById('refresh');
+                refresh.onclick=function() {
+                    send(send_options);
+                }
+                refresh.disabled=false;
+                show_ok(true, false)
+              })
+        .catch(e => {
+            log.error("Error:", e);
+        });
+}
+
+
+document.getElementById('encrypt').onclick = function(event) {
+    encr(document.getElementsByName('remoteKey')[0].value);
+    
+}
+
+document.getElementById('newSalt').onclick = function(event) {
+    output('salt', base64url.encode(newSalt()));
+}
+
+navigator.serviceWorker.addEventListener('message', function(event) {
+    console.debug('Service Worker sent:', JSON.stringify(event.data));
+    if (event.data.type == 'content') {
+        // Compare what we got with the source to make sure
+        // that things worked ok.
+        let source = document.getElementsByName("data")[0].value;
+        notify("Got message", event.data.content);
+        show_ok(true, event.data.content);
+    }
+});
+
+if (navigator.serviceWorker.controller == null) {
+    let regButton = document.getElementById('regButton');
+    let regSec = document.getElementById('regSec');
+    regButton.onclick = register;
+    regSec.classList.remove('hidden');
+} else {
+    register();
+    let subButton = document.getElementById('subscribe');
+    subButton.onclick = subscribe;
+    subButton.disabled = false;
+}
+
+  </script>
+</html>

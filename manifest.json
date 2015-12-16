@@ -1,0 +1,17 @@
+{
+    "short_name": "WebPush Tester",
+    "name": "WebPush Encryption Test Page",
+    "icons": [
+        { "src": "push_test.png",
+          "sizes": "16x16",
+          "type": "image/png"
+        }
+    ],
+    "iconURL": "https://evilonastick.com/push/push_test.png",
+    "workerURL": "https://evilonastick.com/push/sw.js",
+    "description": "Required service worker for push registration",
+    "author": "jr conlin",
+    "homepageURL": "https://evilonastick.com/push/",
+    "display": "standalone",
+    "gcm_sender_id": "21405528143"
+}
