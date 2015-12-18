@@ -145,47 +145,66 @@
   }
 
   function encrypt(localKey, remoteShare, salt, data) {
+    /* Encrypt the data using the temporary, locally generated key,
+     * the remotely shared key, and a salt value
+     *
+     * @param localKey      A temporary, local EC key
+     * @param remoteShare   The public EC key shared by the client
+     * @param salt          A random "salt" value for the encrypted data
+     * @param data          The data to encrypt
+     */
     console.debug("encrypt", localKey, remoteShare, salt, data);
+    // Import the raw key
     return webCrypto.importKey('raw',
-                               remoteShare, P256DH,
-                               false, ['deriveBits'])
+                               remoteShare, // the remotely shared key
+                               P256DH,      // P256 Elliptical Curve, Diffie Hellman
+                               false,
+                               ['deriveBits'] // Derive the private key from the imported bits.
+                               )
       .then(remoteKey => {
+          // Ok, we've got a representation of the remote key.
+          // Now, derive a shared key from our temporary local key
+          // and the remote key we just created.
           console.debug("remoteKey", remoteKey);
           var args = {name: P256DH.name,
                       public: remoteKey}
           console.debug("deriving: ", args, localKey, 256)
           return webCrypto.deriveBits(args, localKey, 256)
       })
-      .then(rawKey => {
-          // inject fake key here?
-
-          var sharedKeyStr = base64url.encode(new Int8Array(rawKey));
+      .then(sharedKey => {
+          // Ok, we finally have a usable key
+          var sharedKeyStr = base64url.encode(new Int8Array(sharedKey));
           output("sharedKey", sharedKeyStr);
-          var kdf = new hkdf(salt, rawKey);
+          var kdf = new hkdf(salt, sharedKey);
           return Promise.allMap({
             key: kdf.generate(ENCRYPT_INFO, 16)
               .then(gcmBits => {
                 output('gcmB', base64url.encode(new Int8Array(gcmBits)));
                 return webCrypto.importKey(
-                    'raw', gcmBits, 'AES-GCM', false, ['encrypt'])
+                    'raw',          // Import key without an envelope
+                    gcmBits,        // the key data
+                    'AES-GCM',      // The type of key to generate
+                    false,
+                    ['encrypt'])    // Use this key for encryption
               }),
+              // Now, create the Nonce, from the known nonce info.
             nonce: kdf.generate(NONCE_INFO, 12)
-              .then(n => {
-                  output('nonce', base64url.encode(new Int8Array(n)));
-                  return n})
+              .then(nonceBits => {
+                  output('nonce', base64url.encode(new Int8Array(nonceBits)));
+                  return nonceBits})
           })
       })
-      .then(r => {
+      .then(encryptingData => {
           // 4096 is the default size, though we burn 1 for padding
-          console.debug("r",r);
+          console.debug("r",encryptingData);
           return Promise.all(chunkArray(data, 4095).map((slice, index) => {
             var padded = bsConcat([new Uint8Array([0]), slice]);
-            var iv = generateNonce(r.nonce, index);
+            var iv = generateNonce(encryptingData.nonce, index);
             output("iv", base64url.encode(iv));
             return webCrypto.encrypt({
               name: 'AES-GCM',
               iv: iv,
-            }, r.key, padded);
+            }, encryptingData.key, padded);
           }));
     }).then(bsConcat)
     .catch(
@@ -221,7 +240,10 @@
         console.debug("Local Key", localKey);
         //output("localKey", JSON.stringify(localKey));
         return Promise.allMap({
-          payload: encrypt(localKey.privateKey, subscription.p256dh, salt, data),
+          payload: encrypt(localKey.privateKey,
+                           subscription.p256dh,
+                           salt,
+                           data),
           // 1337 p-256 specific haxx to get the raw value out of the spki value
           pubkey: webCrypto.exportKey('raw', localKey.publicKey)
         });
