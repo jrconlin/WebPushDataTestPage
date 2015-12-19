@@ -8,15 +8,36 @@
   'use strict';
   var g = window;
 
+  // Semi-handy variable defining the encryption data to be
+  // Elliptical Curve (Diffie-Hellman) (ECDH) using the p256 curve.
   var P256DH = {
     name: 'ECDH',
     namedCurve: 'P-256'
   };
+
+  // WebCrypto (defined by http://www.w3.org/TR/WebCryptoAPI/) is detailed
+  // at https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto
+  //
+  // this has the various encryption library helper functions for things like
+  // EC crypto. It's very nice because it makes calls simple, unfortunately,
+  // it also prevents some key auditing.
+  //
+  // It's worth noting that there's two parts to this. The first uses
+  // ECDH to get "key agreement". This allows to parties to get a secure key
+  // even over untrusted links.
+  //
+  // The second part is the actual message encryption using the agreed key
+  // created by the ECDH dance.
+  //
   var webCrypto = g.crypto.subtle;
+
+  // Per the WebPush API, there are known token values that are used for some
+  // portions of the Nonce creations.
   var ENCRYPT_INFO = new TextEncoder('utf-8').encode(
     "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
 
+  // Split a byte array into chunks of size.
   function chunkArray(array, size) {
     var start = array.byteOffset || 0;
     array = array.buffer || array;
@@ -31,6 +52,19 @@
     }
     return result;
   }
+
+  function textWrap(text, limit) {
+    let tlen = text.length;
+    let buff = ""
+    for (let i=0;i<=tlen;i+=limit) {
+        buff += text.slice(i, Math.min(i+limit, tlen));
+        if (i+limit < tlen) {
+            buff += "\\ \n";
+        }
+    }
+    return buff;
+  }
+
 
   /* I can't believe that this is needed here, in this day and age ...
    * Note: these are not efficient, merely expedient.
@@ -69,6 +103,7 @@
 
   g.base64url = base64url;
 
+  // Write to the various div containers.
   function output(target, value) {
       document.getElementById(target).getElementsByClassName("value")[0].innerHTML = value;
   }
@@ -88,6 +123,7 @@
   }
 
   function bsConcat(arrays) {
+    // Concatinate the byte arrays.
     var size = arrays.reduce((total, a) => total + a.byteLength, 0);
     var index = 0;
     return arrays.reduce((result, a) => {
@@ -99,8 +135,14 @@
 
   function hmac(key) {
     this.keyPromise = webCrypto.importKey(
-        'raw', key, { name: 'HMAC', hash: 'SHA-256' },
-        false, ['sign']);
+        'raw',
+        key,
+        {
+            name: 'HMAC',
+            hash: 'SHA-256'
+        },
+        true,   // Should be false for production.
+        ['sign']);
   }
   hmac.prototype.hash = function(input) {
     return this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
@@ -154,11 +196,18 @@
      * @param data          The data to encrypt
      */
     console.debug("encrypt", localKey, remoteShare, salt, data);
+    // Note: Promises can make things a bit hard to follow if you're not
+    // familiar with how they work. I'm not going to try to duplicate the
+    // fine work of articles like
+    // http://www.html5rocks.com/en/tutorials/es6/promises/ but suffice
+    // to say that the return of each .then() feeds into the next.
+    //
     // Import the raw key
+    // see: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/importKey
     return webCrypto.importKey('raw',
                                remoteShare, // the remotely shared key
                                P256DH,      // P256 Elliptical Curve, Diffie Hellman
-                               false,
+                               true,        // Should be false for prodution
                                ['deriveBits'] // Derive the private key from the imported bits.
                                )
       .then(remoteKey => {
@@ -169,12 +218,17 @@
           var args = {name: P256DH.name,
                       public: remoteKey}
           console.debug("deriving: ", args, localKey, 256)
-          return webCrypto.deriveBits(args, localKey, 256)
+          return webCrypto.deriveBits(args,
+                                      localKey,
+                                      256)
       })
       .then(sharedKey => {
-          // Ok, we finally have a usable key
+          // We now have usable AES key material
+          // derived from the remote public key.
           var sharedKeyStr = base64url.encode(new Int8Array(sharedKey));
           output("sharedKey", sharedKeyStr);
+
+          // Use hkdf to generate both the encryption array and the nonce.
           var kdf = new hkdf(salt, sharedKey);
           return Promise.allMap({
             key: kdf.generate(ENCRYPT_INFO, 16)
@@ -184,7 +238,7 @@
                     'raw',          // Import key without an envelope
                     gcmBits,        // the key data
                     'AES-GCM',      // The type of key to generate
-                    false,
+                    true,
                     ['encrypt'])    // Use this key for encryption
               }),
               // Now, create the Nonce, from the known nonce info.
@@ -195,18 +249,32 @@
           })
       })
       .then(encryptingData => {
-          // 4096 is the default size, though we burn 1 for padding
-          console.debug("r",encryptingData);
-          return Promise.all(chunkArray(data, 4095).map((slice, index) => {
-            var padded = bsConcat([new Uint8Array([0]), slice]);
-            var iv = generateNonce(encryptingData.nonce, index);
-            output("iv", base64url.encode(iv));
-            return webCrypto.encrypt({
-              name: 'AES-GCM',
-              iv: iv,
-            }, encryptingData.key, padded);
+          // 4096 bytes is the default size, though we burn 1 byte for padding
+          console.debug("encryptingData:",encryptingData);
+          // divide the data into chunks, then, for each chunk...
+          return Promise.all(
+              chunkArray(data, 4095)
+              .map((slice, index) => {
+                   // determine the "padded" data block
+                   var padded = bsConcat([new Uint8Array([0]), slice]);
+                   console.debug("slice, padded",
+                       base64url.encode(slice),
+                       base64url.encode(padded))
+                   var iv = generateNonce(encryptingData.nonce, index);
+                   output("iv", base64url.encode(iv));
+                   return webCrypto.encrypt(
+                     {
+                        name: 'AES-GCM',
+                        iv: iv,
+                     },
+                     encryptingData.key,
+                     padded);
           }));
-    }).then(bsConcat)
+    }).then(data=> {
+        console.debug("bsConcat", base64url.encode(data));
+        return bsConcat(data);
+    }
+    )
     .catch(
             x => console.error(x)
      );
@@ -227,13 +295,27 @@
         console.debug("Making new salt");
         salt = g.crypto.getRandomValues(new Uint8Array(16));
     }
-    return webCrypto.generateKey(P256DH, false, ['deriveBits'])
+    return webCrypto.generateKey(
+            P256DH,
+            true,          // false for production
+            ['deriveBits'])
       .then(localKey => {
-        webCrypto.exportKey('raw', localKey.publicKey)
-            .then(key=> output('localKeyPub', base64url.encode(key)))
+        // WebCrypto only allows you to export private keys as jwk.
+        webCrypto.exportKey('jwk', localKey.publicKey)
+            .then(key=>{
+                //output('localKeyPub', base64url.encode(key))
+                output('localKeyPub', JSON.stringify(key));
+            })
             .catch(x => console.error(x));
-        webCrypto.exportKey('raw', localKey.privateKey)
-            .then(key=> output('localKeyPri', base64url.encode(key)))
+        webCrypto.exportKey('raw', localKey.publicKey)
+          .then(key=>{
+              output('localKeyPubRaw', base64url.encode(key));
+          });
+        webCrypto.exportKey('jwk', localKey.privateKey)
+            .then(key=> {
+                console.debug("Private Key:", key)
+                output('localKeyPri', JSON.stringify(key))
+            })
             .catch(x => {console.error(x);
                          output('localKeyPri', "Could not display key: " + x);
             });
@@ -251,20 +333,20 @@
         let options = {
           method: 'PUT',
           headers: {
-            'Encryption-Key': 'keyid=p256dh;dh=' + base64url.encode(
-                results.pubkey),
-            Encryption: 'keyid=p256dh;salt=' + base64url.encode(salt),
+            'Encryption-Key': 'keyid=p256dh;dh=<span class="localKeyPubRaw">' + base64url.encode(
+                results.pubkey) + '</span>',
+            Encryption: 'keyid=p256dh;salt=<span class="salt">' + base64url.encode(salt) + '</span>',
             'Content-Encoding': 'aesgcm128'
           },
           body: base64url.encode(results.payload),
         };
-        output("output", JSON.stringify(options));
-        let outStr = "curl -v -x " + options.method + " " +
-          subscription.endpoint
+        // output("output", JSON.stringify(options));
+        let outStr = "curl -v \\\n -x " + options.method + " \\\n " +
+          subscription.endpoint + " \\\n";
         for (let k in options.headers) {
-            outStr += " -H \"" + k + ": "+ options.headers[k] +"\""
+            outStr += " -H \"" + k + ": "+ options.headers[k] +"\" \\\n"
         }
-        outStr += " -d " + options.body;
+        outStr += ' -d "<span class="body">' + textWrap(options.body, 120) +'</span>"';
         output('curl', outStr);
         //return fetch(subscription.endpoint, options);
       }).catch( x => console.error(x))

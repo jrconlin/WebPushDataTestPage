@@ -9,47 +9,120 @@
     <h1>Web Push Client</h1>
     <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/">
     <br />
-    <label for="salt">Salt:</label><input name="salt" value="a4UV9oUyAtX6ztg4CNiLww">
+    <label for="salt">Salt:</label><input name="salt" class="salt" value="a4UV9oUyAtX6ztg4CNiLww">
     <br />
     <label for="remoteKey">Remote Key:</label><textarea name="remoteKey" >BA2_Pqm4UzUjQ5P7fzP_fkr-4YCoCRn8GCc8l0CKStJ55eDDYI0isIBIbRiRiBEChu-5wxmSE8zOxJdZDaXN_iY</textarea>
     <br />
-    <label for="data">Data:</label><textarea name="data">Mary had a little lamb, with some fresh mint jelly</textarea>
+    <label for="data">Data:</label><textarea name="data">
+ `Twas brillig, and the slithy toves
+  Did gyre and gimble in the wabe:
+ All mimsy were the borogoves,
+  And the mome raths outgrabe.
+
+ "Beware the Jabberwock, my son!
+  The jaws that bite, the claws that catch!
+ Beware the Jubjub bird, and shun
+  The frumious Bandersnatch!"
+
+ He took his vorpal sword in hand:
+  Long time the manxome foe he sought --
+ So rested he by the Tumtum tree,
+  And stood awhile in thought.
+
+ And, as in uffish thought he stood,
+  The Jabberwock, with eyes of flame,
+ Came whiffling through the tulgey wood,
+  And burbled as it came!
+
+ One, two! One, two! And through and through
+  The vorpal blade went snicker-snack!
+ He left it dead, and with its head
+  He went galumphing back.
+
+ "And, has thou slain the Jabberwock?
+  Come to my arms, my beamish boy!
+ O frabjous day! Callooh! Callay!'
+  He chortled in his joy.
+
+
+ `Twas brillig, and the slithy toves
+  Did gyre and gimble in the wabe;
+ All mimsy were the borogoves,
+  And the mome raths outgrabe.
+    </textarea>
+<div id="go">
+<button name="go">Go!</button>
+</div>
+
+    <div id="localKeyPri">
+        <div class="title">Local Key (private):</div>
+        <textarea class="value"></textarea>
+        <div class="description">The private portion of the Local Key.</div>
+    </div>
     <div id="localKeyPub">
-        <span class="title">Local Key (public):</span>
-        <span class="value"></span>
-        <span class="description">Negotiation requires a locally generated
+        <div class="title">Local Key (public):</div>
+        <textarea class="value"></textarea>
+        <div class="description">Negotiation requires a locally generated
         key pair. This key is temporary, but the public key needs to be
-        sent as the <span class="def">Encryption Key</span></span>
+        sent as the <span class="def">Encryption Key</span></div>
     </div>
-    <div id="localKeyPri">Local Key (private):
-        <span class="value"></span>
-        <span class="description">Unfortunately, javascript does not expose
-        the private key. This makes key audits a bit hard, I know.</span>
+    <div id="localKeyPubRaw">
+        <div class="title">Local Key (public, raw):</div>
+        <div class="value localKeyPubRaw"></div>
+        <div class="description">This is the same local public key, only formatted in "raw" form</div>
     </div>
-    <div id="sharedKey">Shared Key:
-        <span class="value"></span>
-        <span class="description">Shared Key is a commonly derived key
+    <div id="sharedKey">
+        <div class="title">Shared Key:</div>
+        <div class="value"></div>
+        <div class="description">AES-GCM key material derived from the local key.</div>
     </div>
-    <div id="gcmB">HKDF generated Bits:<span class="value"></span></div>
-    <div id="nonce">Derived Nonce:<span class="value"></span></div>
-    <div id="iv">IV Nonce:<span class="value"></span></div>
-    <div id="output">Output:<span class="value"></span></div>
-    <div id="curl">Curl:<span class="value"></span></div>
+    <div id="encrypt">
+    <div id="gcmB">
+        <div class="title">Encryption Key</div>
+        <div class="value"></div>
+        <div class="description">HKDF generated Bits derived from the shared key material.</div>
+    </div>
+    <div id="nonce">
+        <div class="title">Derived Nonce:</div>
+        <div class="value nonce"></div>
+        <div class="description">The "nonce" here is derived from the static
+           string, run through the KDF which has been seeded from the
+           <span class="salt">salt</span> and the <span class="localKeyPubRaw">
+               localKey</span>.
+    </div>
+    <div id="iv">
+        <div class="title">Initialization Vector:</div>
+        <div class="value"></div>
+        <div class="description">The AES-GCM Initialization Vector.
+        This is a bit more complex, as it's comprised of a known chunk
+        created through the same KDF that created the <span class="nonce">
+        nonce</span>, as well the index number of the chunk of data
+        we're encoding.</div>.
+    </div>
+    <!-- div id="output">
+        <div class="title">Output:</div>
+        <div class="value"></span>
+    </div -->
+    <div id="curl">
+        <div class="title">Curl:</div>
+        <div class="value"></div>
+    </div>
   </body>
   <script src="webpush.js"></script>
   <script>
-var endpoint = document.getElementsByName("endpoint")[0].value;
-var salt = document.getElementsByName("salt")[0].value;
-var remoteKey = document.getElementsByName("remoteKey")[0].value;
-var data = document.getElementsByName("data")[0].value;
-/*
-var hkdf_test = new hkdf(base64url.decode(salt),
-                         base64url.decode(remoteKey));
-hkdf_test.generate(NONCE_INFO, 12).then(result =>
-        console.debug("hkdf_test: ", base64url.encode(result)));
-*/
-webpush({endpoint: endpoint, p256dh: base64url.decode(remoteKey)}, data,
-        base64url.decode(salt));
-  </script>
 
+function go() {
+    var endpoint = document.getElementsByName("endpoint")[0].value;
+    var salt = document.getElementsByName("salt")[0].value;
+    var remoteKey = document.getElementsByName("remoteKey")[0].value;
+    var data = document.getElementsByName("data")[0].value;
+    webpush({endpoint: endpoint, p256dh: base64url.decode(remoteKey)}, data,
+            base64url.decode(salt));
+}
+
+
+
+go();
+
+  </script>
 </html>
