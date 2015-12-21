@@ -2,11 +2,11 @@
 <html>
   <head>
       <meta charset="utf-8" />
-    <title>Web Push Client</title>
+    <title>Web Push Data Encryption Test Page</title>
     <link href="style.css" rel="stylesheet" />
   </head>
   <body>
-    <h1>Web Push Client</h1>
+  <h1>Web Push Data Encryption Test Page</h1>
     <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/">
     <br />
     <label for="salt">Salt:</label><input name="salt" class="salt" value="a4UV9oUyAtX6ztg4CNiLww">
@@ -53,51 +53,53 @@
 <div id="go">
 <button name="go">Go!</button>
 </div>
-
+<div class="static">
     <div id="localKeyPri">
         <div class="title">Local Key (private):</div>
-        <textarea class="value"></textarea>
         <div class="description">The private portion of the Local Key.</div>
+        <textarea class="value"></textarea>
     </div>
     <div id="localKeyPub">
         <div class="title">Local Key (public):</div>
-        <textarea class="value"></textarea>
         <div class="description">Negotiation requires a locally generated
         key pair. This key is temporary, but the public key needs to be
         sent as the <span class="def">Encryption Key</span></div>
+        <textarea class="value"></textarea>
     </div>
     <div id="localKeyPubRaw">
         <div class="title">Local Key (public, raw):</div>
+        <div class="description">This is the same local public key, only formatted in "raw" form. This is the byte array that is used for deriving
+            the <span class="nonce">nonce</span></div>
         <div class="value localKeyPubRaw"></div>
-        <div class="description">This is the same local public key, only formatted in "raw" form</div>
     </div>
     <div id="sharedKey">
         <div class="title">Shared Key:</div>
-        <div class="value"></div>
         <div class="description">AES-GCM key material derived from the local key.</div>
+        <div class="value"></div>
     </div>
     <div id="encrypt">
-    <div id="gcmB">
-        <div class="title">Encryption Key</div>
-        <div class="value"></div>
-        <div class="description">HKDF generated Bits derived from the shared key material.</div>
-    </div>
-    <div id="nonce">
-        <div class="title">Derived Nonce:</div>
-        <div class="value nonce"></div>
-        <div class="description">The "nonce" here is derived from the static
-           string, run through the KDF which has been seeded from the
-           <span class="salt">salt</span> and the <span class="localKeyPubRaw">
-               localKey</span>.
-    </div>
-    <div id="iv">
-        <div class="title">Initialization Vector:</div>
-        <div class="value"></div>
-        <div class="description">The AES-GCM Initialization Vector.
-        This is a bit more complex, as it's comprised of a known chunk
-        created through the same KDF that created the <span class="nonce">
-        nonce</span>, as well the index number of the chunk of data
-        we're encoding.</div>.
+        <div id="gcmB">
+            <div class="title">Encryption Key</div>
+            <div class="description">HKDF generated Bits derived from the shared key material.</div>
+            <div class="value"></div>
+        </div>
+        <div id="nonce">
+            <div class="title">Derived Nonce:</div>
+            <div class="description">The "nonce" here is derived from the static
+               string, run through the KDF which has been seeded from the
+               <span class="salt">salt</span> and the <span class="localKeyPubRaw">
+                   localKey</span>.</div>
+            <div class="value nonce"></div>
+        </div>
+        <div id="iv">
+            <div class="title">Initialization Vector:</div>
+            <div class="description">The AES-GCM Initialization Vector.
+            This is a bit more complex, as it's comprised of a known chunk
+            created through the same KDF that created the <span class="nonce">
+            nonce</span>, as well the index number of the chunk of data
+            we're encoding.</div>
+            <div class="value"></div>
+        </div>
     </div>
     <!-- div id="output">
         <div class="title">Output:</div>
@@ -107,6 +109,7 @@
         <div class="title">Curl:</div>
         <div class="value"></div>
     </div>
+</div>
   </body>
   <script src="webpush.js"></script>
   <script>

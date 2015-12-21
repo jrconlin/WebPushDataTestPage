@@ -1,12 +1,17 @@
-* {margin:0; padding:0; font:100% Arial;}
-* label{color: #333; display:inline-block; min-width:10em;text-align:right;vertical-align:top; }
-div {min-height: 2em; width:100%;}
-.localKeyPubRaw {color:green; font-weight:bold;}
-.salt {color:blue; font-weight:bold;}
-.nonce {color:purple; font-weight:bold;}
-.title {font-weight: bold; display:block-inline; width: 10em;}
-.value {font: 100% courier}
-input {width: 80%;}
-textarea {width:80%;}
-#curl .value{white-space: pre;}
-#curl .value .body {font: 100% courier; display:block-inline; max-width:70%;}
+* {margin:0;padding:0;font:100% Arial;}
+label{color:#333;display:inline-block;min-width:10em;text-align:right;vertical-align:top;padding:0 .5em 0 0;}
+body {margin:0 auto;max-width:60em;color:#333;}
+div {min-height:2em;width:100%;}
+h1 {font-size:200%;font-weight:bold;}
+.localKeyPubRaw {color:green;font-weight:bold;}
+.salt {color:blue;font-weight:bold;}
+.nonce {color:purple;font-weight:bold;}
+.title {font-weight:bold;display:block-inline;width:10em;}
+.value {font:100% courier;background-color:#FEFEFE;width:90%;}
+.static {padding:0 0 0 4em;background-color:#EFF;border:1px solid #2FF;}
+.title {text-indent:-3em;}
+#encrypt {text-background:#EFF;border:1px solid #CFF;}
+input {width:80%;}
+textarea {width:80%;height:12EX;}
+#curl .value{white-space:pre;background-color:#FEFEFE;overflow:scroll;}
+#curl .value .body {font:100% courier;display:block-inline;max-width:70%;}

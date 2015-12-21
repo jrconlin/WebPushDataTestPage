@@ -260,6 +260,8 @@
                    console.debug("slice, padded",
                        base64url.encode(slice),
                        base64url.encode(padded))
+                   // TODO: WHy is this returning the same value as nonce?
+                   console.debug(base64url.encode(encryptingData.nonce), index)
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
                    return webCrypto.encrypt(
@@ -346,7 +348,7 @@
         for (let k in options.headers) {
             outStr += " -H \"" + k + ": "+ options.headers[k] +"\" \\\n"
         }
-        outStr += ' -d "<span class="body">' + textWrap(options.body, 120) +'</span>"';
+        outStr += ' -d "<span class="body">' + textWrap(options.body, 80) +'</span>"';
         output('curl', outStr);
         //return fetch(subscription.endpoint, options);
       }).catch( x => console.error(x))
