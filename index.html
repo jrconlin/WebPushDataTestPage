@@ -7,12 +7,16 @@
   </head>
   <body>
   <h1>Web Push Data Encryption Test Page</h1>
+    <div id="endpoint">
     <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/">
-    <br />
-    <label for="salt">Salt:</label><input name="salt" class="salt" value="a4UV9oUyAtX6ztg4CNiLww">
-    <br />
-    <label for="remoteKey">Remote Key:</label><textarea name="remoteKey" >BA2_Pqm4UzUjQ5P7fzP_fkr-4YCoCRn8GCc8l0CKStJ55eDDYI0isIBIbRiRiBEChu-5wxmSE8zOxJdZDaXN_iY</textarea>
-    <br />
+    </div>
+    <div id="salt">
+    <label for="salt">Salt:</label><input name="salt" class="salt value" value="a4UV9oUyAtX6ztg4CNiLww">
+    </div>
+    <div id="remoteKey">
+    <label for="remoteKey">Remote Key:</label><textarea class="value" name="remoteKey" ></textarea>
+    </div>
+    <div id="data">
     <label for="data">Data:</label><textarea name="data">
  `Twas brillig, and the slithy toves
   Did gyre and gimble in the wabe:
@@ -50,8 +54,9 @@
  All mimsy were the borogoves,
   And the mome raths outgrabe.
     </textarea>
-<div id="go">
-<button name="go">Go!</button>
+</div>
+<div id="ctrl">
+<button id="refresh">Refresh</button>
 </div>
 <div class="static">
     <div id="localKeyPri">
@@ -111,22 +116,80 @@
     </div>
 </div>
   </body>
-  <script src="init_sw.js"></script>
   <script src="webpush.js"></script>
   <script>
 
-function go() {
-    var endpoint = document.getElementsByName("endpoint")[0].value;
-    var salt = document.getElementsByName("salt")[0].value;
-    var remoteKey = document.getElementsByName("remoteKey")[0].value;
-    var data = document.getElementsByName("data")[0].value;
-    webpush({endpoint: endpoint, p256dh: base64url.decode(remoteKey)}, data,
-            base64url.decode(salt));
+
+(function () {
+    navigator.serviceWorker.register("sw.js")
+        .then( function(swReg){
+            console.debug("Registering...", swReg);
+            swReg.addEventListener('message', function(event) {
+                console.debug("swMessage", event);
+            });
+            swReg.pushManager.subscribe({
+                userVisibleOnly:true,
+            })
+            .then(function(sub) {
+                console.info("then: subscription:", sub);
+
+            })
+            .catch(function(err) {
+                console.error("ERROR: ", err);
+            });
+        })
+    .catch(function(err) {
+        console.error("Registration Error:", err);
+    });
+})();
+
+function getSubscription() {
+    return navigator.serviceWorker.ready
+        .then(function(reg) {
+            sub = reg.pushManager.getSubscription();
+            if (sub) {
+                return sub;
+            }
+        });
 }
 
+function go(remoteKey) {
+    var endpoint = document.getElementsByName("endpoint")[0].value;
+    var salt = document.getElementsByName("salt")[0].value;
+    if (!salt) {
+        // TODO: fail, or autofill a salt value
+        return;
+    }
+    var remoteKey = remoteKey || document.getElementsByName("remoteKey")[0].value;
+    var data = document.getElementsByName("data")[0].value;
+    webpush({endpoint: endpoint, 
+             p256dh: base64url.decode(remoteKey)}, 
+             data,
+             base64url.decode(salt));
+}
 
+document.getElementById("refresh").onclick = go;
 
-go();
+getSubscription()
+    .then(function(sub) {
+        console.debug("setting sub", sub.endpoint);
+        document.getElementsByName("endpoint")[0].value = sub.endpoint;
+        return sub;
+     })
+    .then(function(sub) {
+        console.debug("Sub:", sub);
+        let remoteKey = sub.getKey('p256dh');
+        let key = base64url.encode(remoteKey);
+        // key = btoa(String.fromCharCode.apply(null, new Uint8Array(remoteKey)));
+        console.info("Key: ", key);
+        
+        output('remoteKey', key);
+        return key;
+    })
+    .then(key => go(key))
+    .catch(function(err) {
+         console.error("Sub:", err);
+    });
 
   </script>
 </html>

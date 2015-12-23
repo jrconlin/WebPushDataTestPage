@@ -4,38 +4,44 @@ self.addEventListener('push', function(event) {
     console.log("Recv'd a push message::", event)
 
     if (event.data) {
-        console.log(JSON.stringify(event.data));
+        console.log("swPush:", JSON.stringify(event.data));
+        // TODO: send the event to the parent page
+
     }
 
   // var messageData = event.data; PushMessageData not yet supported.
 });
 
 self.addEventListener('message', function(event) {
-    console.log("Handling message event:", event);
+    console.log("sw Handling message event:", event);
 
 });
 
 self.addEventListener('pushsubscriptionchange', function(event) {
-    console.log("Push Subscription Change", event);
+    console.log("sw Push Subscription Change", event);
 });
 
 self.addEventListener('registration', function(event){
-    console.log("Registration: ", event);
-});
-
-self.addEventListener('activate', function(event){
-    console.log("Activate : ", event);
-    event.waitUntil(self.clients.claim());
-    console.log("Activated: ", event);
+    console.log("sw Registration: ", event);
 });
 
 
 self.addEventListener('install', function(event){
-    console.log("Install: ", event)
+    console.log("sw Install: ", JSON.stringify(event));
     event.waitUntil(self.skipWaiting());
-    console.log("Installed: ", event);
+    console.log("sw Installed: ", JSON.stringify(event));
 });
 
+self.addEventListener('activate', function(event){
+    console.log("sw Activate : ", JSON.stringify(event));
+    event.waitUntil(self.clients.claim());
+    console.log("sw Activated: ", JSON.stringify(event));
+    navigator.serviceWorker
+});
+
+self.onmessage = function(event) {
+  console.log("sw Message:", JSON.strigify(event));  
+}
 /*
   var title = 'Yay a message.';
   var body = 'Subscription has changed.';

@@ -73,6 +73,7 @@
     _strmap: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg' +
              'hijklmnopqrstuvwxyz0123456789-_',
     encode: function(data) {
+        console.debug('Encoding:', data);
       data = new Uint8Array(data);
       var len = Math.ceil(data.length * 4 / 3);
       return chunkArray(data, 3).map(chunk => [
@@ -261,7 +262,6 @@
                        base64url.encode(slice),
                        base64url.encode(padded))
                    // TODO: WHy is this returning the same value as nonce?
-                   console.debug(base64url.encode(encryptingData.nonce), index)
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
                    return webCrypto.encrypt(
@@ -273,10 +273,8 @@
                      padded);
           }));
     }).then(data=> {
-        console.debug("bsConcat", base64url.encode(data));
         return bsConcat(data);
-    }
-    )
+    })
     .catch(
             x => console.error(x)
      );
