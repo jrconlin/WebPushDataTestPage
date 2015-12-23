@@ -37,76 +37,16 @@
     "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
 
-  // Split a byte array into chunks of size.
-  function chunkArray(array, size) {
-    var start = array.byteOffset || 0;
-    array = array.buffer || array;
-    var index = 0;
-    var result = [];
-    while(index + size <= array.byteLength) {
-      result.push(new Uint8Array(array, start + index, size));
-      index += size;
-    }
-    if (index <= array.byteLength) {
-      result.push(new Uint8Array(array, start + index));
-    }
-    return result;
-  }
-
   function textWrap(text, limit) {
     let tlen = text.length;
     let buff = ""
     for (let i=0;i<=tlen;i+=limit) {
         buff += text.slice(i, Math.min(i+limit, tlen));
         if (i+limit < tlen) {
-            buff += "\\ \n";
+            buff += "\\\n";
         }
     }
     return buff;
-  }
-
-
-  /* I can't believe that this is needed here, in this day and age ...
-   * Note: these are not efficient, merely expedient.
-   */
-  var base64url = {
-    _strmap: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg' +
-             'hijklmnopqrstuvwxyz0123456789-_',
-    encode: function(data) {
-        console.debug('Encoding:', data);
-      data = new Uint8Array(data);
-      var len = Math.ceil(data.length * 4 / 3);
-      return chunkArray(data, 3).map(chunk => [
-        chunk[0] >>> 2,
-        ((chunk[0] & 0x3) << 4) | (chunk[1] >>> 4),
-        ((chunk[1] & 0xf) << 2) | (chunk[2] >>> 6),
-        chunk[2] & 0x3f
-      ].map(v => base64url._strmap[v]).join('')).join('').slice(0, len);
-    },
-    _lookup: function(s, i) {
-      return base64url._strmap.indexOf(s.charAt(i));
-    },
-    decode: function(str) {
-      var v = new Uint8Array(Math.floor(str.length * 3 / 4));
-      var vi = 0;
-      for (var si = 0; si < str.length;) {
-        var w = base64url._lookup(str, si++);
-        var x = base64url._lookup(str, si++);
-        var y = base64url._lookup(str, si++);
-        var z = base64url._lookup(str, si++);
-        v[vi++] = w << 2 | x >>> 4;
-        v[vi++] = x << 4 | y >>> 2;
-        v[vi++] = y << 6 | z;
-      }
-      return v;
-    }
-  };
-
-  g.base64url = base64url;
-
-  // Write to the various div containers.
-  function output(target, value) {
-      document.getElementById(target).getElementsByClassName("value")[0].innerHTML = value;
   }
 
   /* Coerces data into a Uint8Array */
@@ -326,27 +266,25 @@
                            subscription.p256dh,
                            salt,
                            data),
-          // 1337 p-256 specific haxx to get the raw value out of the spki value
           pubkey: webCrypto.exportKey('raw', localKey.publicKey)
         });
       }).then(results => {
         let options = {
-          method: 'PUT',
-          headers: {
-            'Encryption-Key': 'keyid=p256dh;dh=<span class="localKeyPubRaw">' + base64url.encode(
-                results.pubkey) + '</span>',
-            Encryption: 'keyid=p256dh;salt=<span class="salt">' + base64url.encode(salt) + '</span>',
-            'Content-Encoding': 'aesgcm128'
-          },
-          body: base64url.encode(results.payload),
+            method: 'POST',
+            headers: {
+                'Encryption-Key': 'keyid=p256dh;dh=' + base64url.encode(
+                    results.pubkey),
+                'Encryption': 'keyid=p256dh;salt=' + base64url.encode(salt),
+                'Content-Encoding': 'aesgcm128',
+            },
+            body: base64url.encode(results.payload),
         };
-        // output("output", JSON.stringify(options));
-        let outStr = "curl -v \\\n -x " + options.method + " \\\n " +
-          subscription.endpoint + " \\\n";
+        let outStr = "curl -v -X " + options.method + " " +
+                           subscription.endpoint + " ";
         for (let k in options.headers) {
-            outStr += " -H \"" + k + ": "+ options.headers[k] +"\" \\\n"
+            outStr += " -H \"" + k + ": "+ options.headers[k] +"\" "
         }
-        outStr += ' -d "<span class="body">' + textWrap(options.body, 80) +'</span>"';
+        outStr += ' -d "<span class="body">' + options.body +'</span>"';
         output('curl', outStr);
         //return fetch(subscription.endpoint, options);
       }).catch( x => console.error(x))
