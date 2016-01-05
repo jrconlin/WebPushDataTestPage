@@ -1,10 +1,15 @@
 'use strict';
- var g = window;
+var g = window;
 
-  // Write to the various div containers.
-  function output(target, value) {
-      document.getElementById(target).getElementsByClassName("value")[0].innerHTML = value;
-  }
+// Write to the various div containers.
+function output(target, value) {
+    var t =  document.getElementById(target).getElementsByClassName("value")[0];
+    if (t.attributes.hasOwnProperty('value')) {
+        t.value = value;
+    } else {
+        t.innerHTML = value;
+    }
+}
 
   // Split a byte array into chunks of size.
   function chunkArray(array, size) {
@@ -29,7 +34,7 @@
     _strmap: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg' +
              'hijklmnopqrstuvwxyz0123456789-_',
     encode: function(data) {
-        console.debug('Encoding:', data);
+      //  console.debug('Encoding:', data);
       data = new Uint8Array(data);
       var len = Math.ceil(data.length * 4 / 3);
       return chunkArray(data, 3).map(chunk => [
@@ -55,8 +60,43 @@
         v[vi++] = y << 6 | z;
       }
       return v;
+
+  function hmac(key) {
+    this.keyPromise = webCrypto.importKey(
+        'raw',
+        key,
+        {
+            name: 'HMAC',
+            hash: 'SHA-256'
+        },
+        true,   // Should be false for production.
+        ['sign']);
+  }
+  hmac.prototype.hash = function(input) {
+    return this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
+  }
+
+  function hkdf(salt, ikm) {
+    this.prkhPromise = new hmac(salt).hash(ikm)
+      .then(prk => new hmac(prk));
+  }
+
+  hkdf.prototype.generate = function(info, len) {
+    var input = bsConcat([info, new Uint8Array([1])]);
+    return this.prkhPromise
+      .then(prkh => prkh.hash(input))
+      .then(h => {
+        if (h.byteLength < len) {
+          throw new Error('Length is too long');
+        }
+        var reply;
+        reply  = h.slice(0, len);
+        // console.debug("hkdf gen", base64url.encode(new Int8Array(reply)));
+        return reply;
+      });
+  };
+
     }
   };
 
   window.base64url = base64url;
-

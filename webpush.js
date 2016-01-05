@@ -198,19 +198,20 @@
               .map((slice, index) => {
                    // determine the "padded" data block
                    var padded = bsConcat([new Uint8Array([0]), slice]);
-                   console.debug("slice, padded",
-                       base64url.encode(slice),
-                       base64url.encode(padded))
+                   console.debug("slice :",base64url.encode(slice));
+                   console.debug("padded:", base64url.encode(padded));
+                   console.debug("orig:", new TextDecoder('utf-8').decode(padded));
                    // TODO: WHy is this returning the same value as nonce?
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
-                   return webCrypto.encrypt(
+                   var edata= webCrypto.encrypt(
                      {
                         name: 'AES-GCM',
                         iv: iv,
                      },
                      encryptingData.key,
                      padded);
+                   return edata;
           }));
     }).then(data=> {
         return bsConcat(data);
@@ -229,17 +230,21 @@
    * @param data         The message to send.
    */
   function webpush(subscription, data, salt) {
+    console.debug('data:', data);
     data = ensureView(data);
+    // console.debug(new TextDecoder('utf-8').decode(data))
 
     if (salt == null) {
         console.debug("Making new salt");
         salt = g.crypto.getRandomValues(new Uint8Array(16));
+        output('salt', salt);
     }
     return webCrypto.generateKey(
             P256DH,
             true,          // false for production
             ['deriveBits'])
       .then(localKey => {
+        // Dump the local public key
         // WebCrypto only allows you to export private keys as jwk.
         webCrypto.exportKey('jwk', localKey.publicKey)
             .then(key=>{
@@ -251,6 +256,7 @@
           .then(key=>{
               output('localKeyPubRaw', base64url.encode(key));
           });
+        // Dump the local private key
         webCrypto.exportKey('jwk', localKey.privateKey)
             .then(key=> {
                 console.debug("Private Key:", key)
@@ -260,7 +266,7 @@
                          output('localKeyPri', "Could not display key: " + x);
             });
         console.debug("Local Key", localKey);
-        //output("localKey", JSON.stringify(localKey));
+        // encode all the data as chunks
         return Promise.allMap({
           payload: encrypt(localKey.privateKey,
                            subscription.p256dh,
@@ -270,29 +276,37 @@
         });
       }).then(results => {
         let options = {
-            method: 'POST',
+            method: 'PUT',
             headers: {
                 'Encryption-Key': 'keyid=p256dh;dh=' + base64url.encode(
                     results.pubkey),
                 'Encryption': 'keyid=p256dh;salt=' + base64url.encode(salt),
                 'Content-Encoding': 'aesgcm128',
             },
-            body: base64url.encode(results.payload),
+            body: results.payload
         };
-        let outStr = "curl -v -X " + options.method + " " +
+        output('osalt', base64url.encode(salt));
+        output('odh', base64url.encode(results.pubkey));
+        output('odata', new TextDecoder('utf-8').decode(results.payload));
+        let outStr = "";
+        var sbody = "";
+        for (let k in new TextDecoder('utf-8').decode(results.payload)) {
+            sbody += "\\x" + (results.payload[k]).toString(16);
+        }
+        outStr += 'echo -e "' + sbody + '" > foo.dat;\n';
+        outStr += "curl -v -X " + options.method + " " +
                            subscription.endpoint + " ";
         for (let k in options.headers) {
             outStr += " -H \"" + k + ": "+ options.headers[k] +"\" "
         }
-        outStr += ' -d "<span class="body">' + options.body +'</span>"';
+        outStr += ' --data-binary @foo.dat';
         output('curl', outStr);
-        //return fetch(subscription.endpoint, options);
-      }).catch( x => console.error(x))
-      /*.then(response => {
-        if (response.status / 100 !== 2) {
-          throw new Error('Unable to deliver message');
+        return fetch(subscription.endpoint, options);
+      })
+      .then(response => {
+        if (response.status < 200 || response.status > 299) {
+          throw new Error('Unable to deliver message: ', JSON.stringify(response));
         }
-      }
-    );
-    */
+      })
+      .catch(err => console.error("Send Failed: ", err))
   }

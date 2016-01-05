@@ -4,22 +4,24 @@
       <meta charset="utf-8" />
     <title>Web Push Data Encryption Test Page</title>
     <link href="style.css" rel="stylesheet" />
+    <link href="manifest.json" rel="manifest" />
   </head>
   <body>
   <h1>Web Push Data Encryption Test Page</h1>
     <div id="endpoint">
-    <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/">
+    <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/" class="value">
     </div>
     <div id="salt">
-    <label for="salt">Salt:</label><input name="salt" class="salt value" value="a4UV9oUyAtX6ztg4CNiLww">
+    <label for="salt">Salt:</label><input name="salt" class="salt value" value="salt">
     </div>
     <div id="remoteKey">
     <label for="remoteKey">Remote Key:</label><textarea class="value" name="remoteKey" ></textarea>
     </div>
     <div id="data">
-    <label for="data">Data:</label><textarea name="data">
- `Twas brillig, and the slithy toves
-  Did gyre and gimble in the wabe:
+    <label for="data">Data:</label><textarea name="data">This is test data.
+</textarea>
+<!-- `Twas brillig, and the slithy toves
+Did gyre and gimble in the wabe:
  All mimsy were the borogoves,
   And the mome raths outgrabe.
 
@@ -29,7 +31,7 @@
   The frumious Bandersnatch!"
 
  He took his vorpal sword in hand:
-  Long time the manxome foe he sought --
+  Long time the manxome foe he sought -
  So rested he by the Tumtum tree,
   And stood awhile in thought.
 
@@ -48,12 +50,12 @@
  O frabjous day! Callooh! Callay!'
   He chortled in his joy.
 
-
  `Twas brillig, and the slithy toves
   Did gyre and gimble in the wabe;
  All mimsy were the borogoves,
-  And the mome raths outgrabe.
+  And the mome raths outgrabe. 
     </textarea>
+-->
 </div>
 <div id="ctrl">
 <button id="refresh">Refresh</button>
@@ -112,16 +114,36 @@
     </div -->
     <div id="curl">
         <div class="title">Curl:</div>
+        <div class="description">This is a proxy for your library. Please
+        note that the input for this is a binary blob. In this case, I'm 
+        attempting to write the data out to a file, then read it in with 
+        curl. Transcoding the data to base64 or some other encoding mechanism
+        will not work.</div>
         <div class="value"></div>
+    </div>
+    <div id="out">
+    <div id="osalt">
+        <div class="title">Salt:</div>
+        <div class="description">The salt value sent.</div>
+        <div class="value salt"></div></div>
+    <div id="odh">
+        <div class="title">dh:</div>
+        <div class="description">Diffie-Hellman key sent.</div>
+        <div class="value"></div>
+    </div>
+    <div id="odata">
+        <div class="title">data:</div>
+        <div class="description">This is the raw data. Please note: </div>
+        <div class="value"></div></div>
     </div>
 </div>
   </body>
+  <script src="ece.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script>
 
-
-(function () {
+function register() {
     navigator.serviceWorker.register("sw.js")
         .then( function(swReg){
             console.debug("Registering...", swReg);
@@ -132,8 +154,17 @@
                 userVisibleOnly:true,
             })
             .then(function(sub) {
-                console.info("then: subscription:", sub);
-
+                console.info("subscription:", sub);
+                if (! sub.endpoint) {
+                    console.error("Crap, subscription doesn't have an endpoint. Aborting.");
+                    return;
+                }
+                output('endpoint', sub.endpoint);
+                output('remoteKey', base64url.encode(sub.getKey('p256dh')));
+                console.debug ("Auth key: ", base64url.encode(sub.getKey('auth')));
+                // crypto == window.crypto
+                output('salt', base64url.encode(crypto.getRandomValues(new Uint8Array(16))));
+                return sub.endpoint;
             })
             .catch(function(err) {
                 console.error("ERROR: ", err);
@@ -142,7 +173,7 @@
     .catch(function(err) {
         console.error("Registration Error:", err);
     });
-})();
+};
 
 function getSubscription() {
     return navigator.serviceWorker.ready
@@ -151,6 +182,9 @@ function getSubscription() {
             if (sub) {
                 return sub;
             }
+            else {
+                console.error("No subscription found.");
+            }
         });
 }
 
@@ -158,39 +192,80 @@ function go(remoteKey) {
     var endpoint = document.getElementsByName("endpoint")[0].value;
     var salt = document.getElementsByName("salt")[0].value;
     if (!salt) {
-        // TODO: fail, or autofill a salt value
         return;
     }
-    var remoteKey = remoteKey || document.getElementsByName("remoteKey")[0].value;
+    if (! remoteKey) {
+        remoteKey = document.getElementsByName("remoteKey")[0].value;
+    }
     var data = document.getElementsByName("data")[0].value;
-    webpush({endpoint: endpoint, 
-             p256dh: base64url.decode(remoteKey)}, 
-             data,
-             base64url.decode(salt));
+    var encr = webpush({endpoint: endpoint, 
+                        p256dh: base64url.decode(remoteKey)}, 
+                        data,
+                        base64url.decode(salt))
+/*
+        .then(d =>{
+            // if local decryption toggled
+            var h = d.headers;
+            var keyid = /keyid=([^;]+)/.exec(h['Encryption-Key'])[1];
+            var salt = /salt=([^;]+)/.exec(h['Encryption'])[1];
+            var dh = /dh=([^;]+)/.exec(h['Encryption-Key'])[1];
+            output("osalt", salt);
+            output("odh", dh);
+            output("odata", d.body);
+            })
+*/
+;
+    console.debug(encr);
 }
 
-document.getElementById("refresh").onclick = go;
+
+var endpoint = register();
 
 getSubscription()
     .then(function(sub) {
-        console.debug("setting sub", sub.endpoint);
-        document.getElementsByName("endpoint")[0].value = sub.endpoint;
+        if (!sub) {
+            console.error("Got empty subscription info block");
+            throw("EmptySub");
+        }
         return sub;
      })
     .then(function(sub) {
         console.debug("Sub:", sub);
-        let remoteKey = sub.getKey('p256dh');
-        let key = base64url.encode(remoteKey);
-        // key = btoa(String.fromCharCode.apply(null, new Uint8Array(remoteKey)));
-        console.info("Key: ", key);
-        
-        output('remoteKey', key);
-        return key;
+        if (true) {
+            if (!sub.getKey) {
+                console.error("Crap, subscription doesn't have a key. Aborting.");
+                return;
+            }
+            var key = base64url.encode(sub.getKey('p256dh'));
+            console.info("Key: ", key);
+            return key;
+        } else {
+            // generate the fakey remote key
+            v = webCrypto.generateKey(P256DH, true, ['deriveKey'])
+                .then(key =>{
+                    console.debug("Saving key...");
+                    saveKey('p256dh', key);
+                    webCrypto.exportKey('raw', key.publicKey)
+                        .then(pkey => {
+                            skey = base64url.encode(pkey);
+                            console.debug('remoteKey', skey);
+                            output('remoteKey', skey);
+                            go(skey);
+                        })
+                        .catch(err => console.error("key save:", err));
+            });
+            return v;
+        }
+           
     })
-    .then(key => go(key))
+    .then(key => { 
+        if (key) {go(key)}
+    })
     .catch(function(err) {
-         console.error("Sub:", err);
+        console.error("attempting local decode:", err);
     });
+
+document.getElementById("refresh").onclick = go;
 
   </script>
 </html>

@@ -1,10 +1,10 @@
 var port;
 
 self.addEventListener('push', function(event) {
-    console.log("Recv'd a push message::", event)
+    console.info("**** Recv'd a push message::", JSON.stringify(event));
 
     if (event.data) {
-        console.log("swPush:", JSON.stringify(event.data));
+        console.log("** swPush:", JSON.stringify(event.data));
         // TODO: send the event to the parent page
 
     }
