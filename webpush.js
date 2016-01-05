@@ -37,6 +37,8 @@
     "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
 
+  var pheaders;
+
   function textWrap(text, limit) {
     let tlen = text.length;
     let buff = ""
@@ -198,9 +200,9 @@
               .map((slice, index) => {
                    // determine the "padded" data block
                    var padded = bsConcat([new Uint8Array([0]), slice]);
-                   console.debug("slice :",base64url.encode(slice));
-                   console.debug("padded:", base64url.encode(padded));
-                   console.debug("orig:", new TextDecoder('utf-8').decode(padded));
+                   console.debug("slice   :", base64url.encode(slice));
+                   console.debug("padded  :", base64url.encode(padded));
+                   console.debug("original:", new TextDecoder('utf-8').decode(padded));
                    // TODO: WHy is this returning the same value as nonce?
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
@@ -274,39 +276,40 @@
                            data),
           pubkey: webCrypto.exportKey('raw', localKey.publicKey)
         });
-      }).then(results => {
-        let options = {
-            method: 'PUT',
-            headers: {
-                'Encryption-Key': 'keyid=p256dh;dh=' + base64url.encode(
-                    results.pubkey),
-                'Encryption': 'keyid=p256dh;salt=' + base64url.encode(salt),
-                'Content-Encoding': 'aesgcm128',
-            },
+      })
+      .then(results => {
+        pheaders = {'Encryption-Key':
+                         'keyid=p256dh;dh=' + base64url.encode(results.pubkey),
+                        'Encryption':
+                         'keyid=p256dh;salt=' + base64url.encode(salt),
+                        'Content-Encoding': 'aesgcm128'};
+        var options = {
+            method: 'POST',
+            headers: pheaders,
             body: results.payload
         };
-        output('osalt', base64url.encode(salt));
-        output('odh', base64url.encode(results.pubkey));
-        output('odata', new TextDecoder('utf-8').decode(results.payload));
-        let outStr = "";
-        var sbody = "";
-        for (let k in new TextDecoder('utf-8').decode(results.payload)) {
-            sbody += "\\x" + (results.payload[k]).toString(16);
-        }
-        outStr += 'echo -e "' + sbody + '" > foo.dat;\n';
-        outStr += "curl -v -X " + options.method + " " +
-                           subscription.endpoint + " ";
-        for (let k in options.headers) {
-            outStr += " -H \"" + k + ": "+ options.headers[k] +"\" "
-        }
-        outStr += ' --data-binary @foo.dat';
-        output('curl', outStr);
-        return fetch(subscription.endpoint, options);
+        // Note, fetch doesn't always seem to want to send the Headers.
+        // Chances are VERY Good that if this returns an error, the headers
+        // were not set. You can check the Network debug panel to see if
+        // the request included the headers.
+        let endpoint = subscription.endpoint;
+        fetch(endpoint, options)
+            .then(response => {
+                if (! response.ok) {
+                    throw new Error('Unable to deliver message: ', 
+                                    JSON.stringify(response));
+                }
+        
+            })
+            .catch(err => console.error("Send Failed: ", err));
+        // uncomment if you're planning on returning the object for display
+        options.salt = salt;
+        options.dh = results.pubkey;
+        options.endpoint = subscription.endpoint;
+        // include the headers here because sometimes you can't extract
+        // them from a used Headers object.
+        options.pheaders = pheaders;
+        return options;
       })
-      .then(response => {
-        if (response.status < 200 || response.status > 299) {
-          throw new Error('Unable to deliver message: ', JSON.stringify(response));
-        }
-      })
-      .catch(err => console.error("Send Failed: ", err))
+      .catch(err => console.error("Unknown error:", err));
   }

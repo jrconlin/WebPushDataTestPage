@@ -94,8 +94,8 @@ Did gyre and gimble in the wabe:
             <div class="title">Derived Nonce:</div>
             <div class="description">The "nonce" here is derived from the static
                string, run through the KDF which has been seeded from the
-               <span class="salt">salt</span> and the <span class="localKeyPubRaw">
-                   localKey</span>.</div>
+               <span class="salt">salt</span> 
+                and the <span class="localKeyPubRaw"> localKey</span>.</div>
             <div class="value nonce"></div>
         </div>
         <div id="iv">
@@ -133,17 +133,20 @@ Did gyre and gimble in the wabe:
     </div>
     <div id="odata">
         <div class="title">data:</div>
-        <div class="description">This is the raw data. Please note: </div>
+        <div class="description">This is the raw, encrypted data.</div>
         <div class="value"></div></div>
+        <div class="ctrl"><button id="saveas">Save Data As...</button></div>
     </div>
 </div>
   </body>
+  <script src="FileSaver.js"></script>
   <script src="ece.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script>
 
 function register() {
+    /* Register the service worker */
     navigator.serviceWorker.register("sw.js")
         .then( function(swReg){
             console.debug("Registering...", swReg);
@@ -156,14 +159,17 @@ function register() {
             .then(function(sub) {
                 console.info("subscription:", sub);
                 if (! sub.endpoint) {
-                    console.error("Crap, subscription doesn't have an endpoint. Aborting.");
+                    console.error("Crap, subscription doesn't have an " +
+                                  "endpoint. Aborting.");
                     return;
                 }
                 output('endpoint', sub.endpoint);
                 output('remoteKey', base64url.encode(sub.getKey('p256dh')));
-                console.debug ("Auth key: ", base64url.encode(sub.getKey('auth')));
-                // crypto == window.crypto
-                output('salt', base64url.encode(crypto.getRandomValues(new Uint8Array(16))));
+                console.debug ("Auth key: ", 
+                                base64url.encode(sub.getKey('auth')));
+                output('salt', 
+                       base64url.encode(crypto.getRandomValues(
+                                            new Uint8Array(16))));
                 return sub.endpoint;
             })
             .catch(function(err) {
@@ -175,7 +181,11 @@ function register() {
     });
 };
 
+var endpoint = register();
+
 function getSubscription() {
+    /* Get a WebPush subscription via the service worker.
+    */
     return navigator.serviceWorker.ready
         .then(function(reg) {
             sub = reg.pushManager.getSubscription();
@@ -189,6 +199,9 @@ function getSubscription() {
 }
 
 function go(remoteKey) {
+    /* Fetch & fill various fields, attempt to create a message and send
+       it to yourself.
+    */
     var endpoint = document.getElementsByName("endpoint")[0].value;
     var salt = document.getElementsByName("salt")[0].value;
     if (!salt) {
@@ -202,24 +215,35 @@ function go(remoteKey) {
                         p256dh: base64url.decode(remoteKey)}, 
                         data,
                         base64url.decode(salt))
-/*
-        .then(d =>{
-            // if local decryption toggled
-            var h = d.headers;
-            var keyid = /keyid=([^;]+)/.exec(h['Encryption-Key'])[1];
-            var salt = /salt=([^;]+)/.exec(h['Encryption'])[1];
-            var dh = /dh=([^;]+)/.exec(h['Encryption-Key'])[1];
-            output("osalt", salt);
-            output("odh", dh);
-            output("odata", d.body);
-            })
-*/
-;
+        .then(d => {
+                // Populate the extra fields
+                output('osalt', base64url.encode(d.salt));
+                output('odh', base64url.encode(d.dh));
+                var rdata = new TextDecoder('utf-8').decode(d.body);
+                output('odata', rdata);
+                document.getElementById('saveas').onclick = function(){
+                    saveAs(new Blob([rdata], 
+                                    {type:"application/octet-binary"}), 
+                            "encrypted.data");
+                };
+                // Construct the curl. Remember, this needs to 
+                // write a binary file first, then have curl read that file.
+                // This is because putting the data "inline" can fail.
+                let outStr = "";
+                let sbody = "";
+                for (let k in d.body){
+                    sbody += "\\x" + (d.body[k]).toString(16);
+                }
+                outStr += 'echo -e "' + sbody + '" > encr.msg;\n';
+                outStr += "curl -v -X " + d.method + " " + d.endpoint + " ";
+                for (let k in d.pheaders) {
+                    outStr += " -H \"" + k + ": "+ d.pheaders[k] +"\" "
+                }
+                outStr += ' --data-binary @encr.msg';
+                output('curl', outStr);
+              });
     console.debug(encr);
 }
-
-
-var endpoint = register();
 
 getSubscription()
     .then(function(sub) {
@@ -233,7 +257,8 @@ getSubscription()
         console.debug("Sub:", sub);
         if (true) {
             if (!sub.getKey) {
-                console.error("Crap, subscription doesn't have a key. Aborting.");
+                console.error("Crap, subscription doesn't have a key. " +
+                              "Aborting.");
                 return;
             }
             var key = base64url.encode(sub.getKey('p256dh'));

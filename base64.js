@@ -11,8 +11,8 @@ function output(target, value) {
     }
 }
 
-  // Split a byte array into chunks of size.
-  function chunkArray(array, size) {
+// Split a byte array into chunks of size.
+function chunkArray(array, size) {
     var start = array.byteOffset || 0;
     array = array.buffer || array;
     var index = 0;
@@ -25,12 +25,12 @@ function output(target, value) {
       result.push(new Uint8Array(array, start + index));
     }
     return result;
-  }
+}
 
-  /* I can't believe that this is needed here, in this day and age ...
-   * Note: these are not efficient, merely expedient.
-   */
-  var base64url = {
+/* I can't believe that this is needed here, in this day and age ...
+* Note: these are not efficient, merely expedient.
+*/
+var base64url = {
     _strmap: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg' +
              'hijklmnopqrstuvwxyz0123456789-_',
     encode: function(data) {
@@ -60,8 +60,10 @@ function output(target, value) {
         v[vi++] = y << 6 | z;
       }
       return v;
+    }
+  };
 
-  function hmac(key) {
+function hmac(key) {
     this.keyPromise = webCrypto.importKey(
         'raw',
         key,
@@ -71,17 +73,17 @@ function output(target, value) {
         },
         true,   // Should be false for production.
         ['sign']);
-  }
-  hmac.prototype.hash = function(input) {
-    return this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
-  }
+};
+hmac.prototype.hash = function(input) {
+    var val = this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
+    return val;
+};
 
-  function hkdf(salt, ikm) {
+function hkdf(salt, ikm) {
     this.prkhPromise = new hmac(salt).hash(ikm)
       .then(prk => new hmac(prk));
-  }
-
-  hkdf.prototype.generate = function(info, len) {
+};
+hkdf.prototype.generate = function(info, len) {
     var input = bsConcat([info, new Uint8Array([1])]);
     return this.prkhPromise
       .then(prkh => prkh.hash(input))
@@ -94,9 +96,6 @@ function output(target, value) {
         // console.debug("hkdf gen", base64url.encode(new Int8Array(reply)));
         return reply;
       });
-  };
+};
 
-    }
-  };
-
-  window.base64url = base64url;
+window.base64url = base64url;

@@ -1,6 +1,10 @@
 var port;
 
 self.addEventListener('push', function(event) {
+    /* Push events arrive when a push message is received.
+       They should include a .data component that is the decrypted
+       content of the message.
+    */
     console.info("**** Recv'd a push message::", JSON.stringify(event));
 
     if (event.data) {
@@ -8,13 +12,10 @@ self.addEventListener('push', function(event) {
         // TODO: send the event to the parent page
 
     }
-
-  // var messageData = event.data; PushMessageData not yet supported.
 });
 
 self.addEventListener('message', function(event) {
     console.log("sw Handling message event:", event);
-
 });
 
 self.addEventListener('pushsubscriptionchange', function(event) {
