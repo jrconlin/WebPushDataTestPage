@@ -233,7 +233,7 @@ function go(remoteKey) {
                 for (let k in d.body){
                     sbody += "\\x" + (d.body[k]).toString(16);
                 }
-                outStr += 'echo -e "' + sbody + '" > encrypted.data;\n';
+                outStr += 'echo -ne "' + sbody + '" > encr.msg;\n';
                 outStr += "curl -v -X " + d.method + " " + d.endpoint + " ";
                 for (let k in d.pheaders) {
                     outStr += " -H \"" + k + ": "+ d.pheaders[k] +"\" "
