@@ -58,13 +58,13 @@ Did gyre and gimble in the wabe:
 -->
 </div>
 <div id="ctrl">
-<button id="refresh">Refresh</button>
+<button id="refresh" >Refresh</button>
 </div>
 <div class="static">
     <div id="localKeyPri">
         <div class="title">Local Key (private):</div>
         <div class="description">The private portion of the Local Key.</div>
-        <textarea class="value"></textarea>
+        <div class="value wrap"></textarea>
     </div>
     <div id="localKeyPub">
         <div class="title">Local Key (public):</div>
@@ -119,22 +119,22 @@ Did gyre and gimble in the wabe:
         attempting to write the data out to a file, then read it in with 
         curl. Transcoding the data to base64 or some other encoding mechanism
         will not work.</div>
-        <div class="value"></div>
+        <div class="value wrap"></div>
     </div>
     <div id="out">
     <div id="osalt">
         <div class="title">Salt:</div>
         <div class="description">The salt value sent.</div>
-        <div class="value salt"></div></div>
+        <div class="value salt wrap"></div></div>
     <div id="odh">
         <div class="title">dh:</div>
         <div class="description">Diffie-Hellman key sent.</div>
-        <div class="value"></div>
+        <div class="value wrap"></div>
     </div>
     <div id="odata">
         <div class="title">data:</div>
         <div class="description">This is the raw, encrypted data.</div>
-        <div class="value"></div></div>
+        <!-- div class="value"></div -->
         <div class="ctrl"><button id="saveas">Save Data As...</button></div>
     </div>
 </div>
@@ -147,7 +147,7 @@ Did gyre and gimble in the wabe:
 
 function register() {
     /* Register the service worker */
-    navigator.serviceWorker.register("sw.js")
+    navigator.serviceWorker.register("https://evilonastick.com/push/sw.js")
         .then( function(swReg){
             console.debug("Registering...", swReg);
             swReg.addEventListener('message', function(event) {
@@ -220,7 +220,6 @@ function go(remoteKey) {
                 output('osalt', base64url.encode(d.salt));
                 output('odh', base64url.encode(d.dh));
                 var rdata = new TextDecoder('utf-8').decode(d.body);
-                output('odata', rdata);
                 document.getElementById('saveas').onclick = function(){
                     saveAs(new Blob([rdata], 
                                     {type:"application/octet-binary"}), 
@@ -290,7 +289,14 @@ getSubscription()
         console.error("attempting local decode:", err);
     });
 
-document.getElementById("refresh").onclick = go;
+document.getElementById("refresh").onclick = function(event) {
+    go(document.getElementsByName("remoteKey")[0].value);
+}
+
+document.addEventListener("message", function(e){
+    console.log("Main got", e, e.data);
+});
+
 
   </script>
 </html>

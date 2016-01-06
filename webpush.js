@@ -37,8 +37,6 @@
     "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
 
-  var pheaders;
-
   function textWrap(text, limit) {
     let tlen = text.length;
     let buff = ""
@@ -278,7 +276,7 @@
         });
       })
       .then(results => {
-        pheaders = {'Encryption-Key':
+        var pheaders = {'Encryption-Key':
                          'keyid=p256dh;dh=' + base64url.encode(results.pubkey),
                         'Encryption':
                          'keyid=p256dh;salt=' + base64url.encode(salt),

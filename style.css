@@ -7,12 +7,14 @@ input {width:80%;font-family:"courier new",courier,monospace;}
 textarea {width:80%;height:12EX;font-family:"courier new",courier,monospace;}
 .localKeyPubRaw {color:green;font-weight:bold;}
 .salt {color:blue;font-weight:bold;}
+.value {margin-bottom: 2em;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;}
 .static .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:90%;}
 .static {padding:0 0 0 4em;background-color:#EFF;border:1px solid #2FF;}
 .title {text-indent:-3em;}
 #encrypt {text-background:#EFF;border:1px solid #CFF;}
-#curl .value{color: #333;white-space:pre-wrap;word-break:break-all;;background-color:#FEFEFE;}
-#odata .value{color: #333;white-space:pre-wrap;word-break:break-all;;background-color:#FEFEFE;}
+.wrap {white-space:pre-wrap;word-break:break-all;}
+#curl .value{color: #333;background-color:#FEFEFE;}
+#odata .value{color: #333;background-color:#FEFEFE;}
 #curl .value .body {font:100% "courier new",courier,monospace;}
