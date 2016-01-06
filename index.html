@@ -219,26 +219,29 @@ function go(remoteKey) {
                 // Populate the extra fields
                 output('osalt', base64url.encode(d.salt));
                 output('odh', base64url.encode(d.dh));
-                var rdata = new TextDecoder('utf-8').decode(d.body);
+                // TODO: neither of these export binary data correctly, 
+                //       so curl can process it the same as fetch();
+                // TODO: Why isn't this converting to straight binary?
+                var blob = new Blob(d.body, 
+                    {type: "application/octet-binary"});
                 document.getElementById('saveas').onclick = function(){
-                    saveAs(new Blob([rdata], 
-                                    {type:"application/octet-binary"}), 
-                            "encrypted.data");
+                    saveAs(blob, "encrypted.data");
                 };
                 // Construct the curl. Remember, this needs to 
                 // write a binary file first, then have curl read that file.
                 // This is because putting the data "inline" can fail.
                 let outStr = "";
                 let sbody = "";
+                // TODO: doesn't produce same output as above.
                 for (let k in d.body){
                     sbody += "\\x" + (d.body[k]).toString(16);
                 }
-                outStr += 'echo -e "' + sbody + '" > encr.msg;\n';
+                outStr += 'echo -e "' + sbody + '" > encrypted.data;\n';
                 outStr += "curl -v -X " + d.method + " " + d.endpoint + " ";
                 for (let k in d.pheaders) {
                     outStr += " -H \"" + k + ": "+ d.pheaders[k] +"\" "
                 }
-                outStr += ' --data-binary @encr.msg';
+                outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
               });
     console.debug(encr);
