@@ -1,5 +1,3 @@
-var port;
-
 self.addEventListener('push', function(event)  {
     /* Push events arrive when a push message is received.
        They should include a .data component that is the decrypted
@@ -19,16 +17,11 @@ self.addEventListener('push', function(event)  {
         // Since we sent this in as text, read it out as text.
         let content = event.data.text();
         console.log("** swPush:", content);
-        for(let k in self) {
-            console.log("self.", k);
-        }
-        for(let k in this) {
-            console.log("this.", k);
-        }
-        // Send the event to the parent page
+        // Send the event to the parent pages. 
         event.waitUntil(
           self.clients.matchAll()
-          .then(clientList => clientList.forEach(client => client.postMessage(content)))
+          .then(clientList => 
+                clientList.forEach(client => client.postMessage(content)))
         );
     }
 });

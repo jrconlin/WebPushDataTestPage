@@ -198,10 +198,9 @@
               .map((slice, index) => {
                    // determine the "padded" data block
                    var padded = bsConcat([new Uint8Array([0]), slice]);
-                   console.debug("slice   :", base64url.encode(slice));
-                   console.debug("padded  :", base64url.encode(padded));
-                   console.debug("original:", new TextDecoder('utf-8').decode(padded));
-                   // TODO: WHy is this returning the same value as nonce?
+                   //console.debug("slice   :", base64url.encode(slice));
+                   //console.debug("padded  :", base64url.encode(padded));
+                   //console.debug("original:", new TextDecoder('utf-8').decode(padded));
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
                    var edata= webCrypto.encrypt(
@@ -254,7 +253,7 @@
             .catch(x => console.error(x));
         webCrypto.exportKey('raw', localKey.publicKey)
           .then(key=>{
-              output('localKeyPubRaw', base64url.encode(key));
+              output('dhKey', base64url.encode(key));
           });
         // Dump the local private key
         webCrypto.exportKey('jwk', localKey.privateKey)
@@ -276,11 +275,15 @@
         });
       })
       .then(results => {
-        var pheaders = {'Encryption-Key':
+        var pheaders = {'encryption-key':
                          'keyid=p256dh;dh=' + base64url.encode(results.pubkey),
-                        'Encryption':
+                        'encryption':
                          'keyid=p256dh;salt=' + base64url.encode(salt),
-                        'Content-Encoding': 'aesgcm128'};
+                        'content-encoding': 'aesgcm128'};
+        let headers = new Headers();
+        for (let k in pheaders) {
+            headers.append(k, pheaders[k]);
+        }
         var options = {
             method: 'POST',
             headers: pheaders,
@@ -291,15 +294,25 @@
         // were not set. You can check the Network debug panel to see if
         // the request included the headers.
         let endpoint = subscription.endpoint;
+        console.debug("Fetching:", endpoint, options);
+        console.debug("Encryption-Key header", headers.get("encryption-key"))
         fetch(endpoint, options)
             .then(response => {
                 if (! response.ok) {
+                    if (response.status == 400) {
+                        console.error("Server returned 400. Probably " + 
+                        "missing headers. Try refreshing to see if " +
+                        "fetch() will send them.");
+                        throw new Error("fetch() failed to include headers. Refresh");
+                    }
                     throw new Error('Unable to deliver message: ', 
                                     JSON.stringify(response));
-                }
-        
+              } 
             })
-            .catch(err => console.error("Send Failed: ", err));
+            .catch(err =>{
+                 console.error("Send Failed: ", err);
+                 show_ok(false);
+            });
         // uncomment if you're planning on returning the object for display
         options.salt = salt;
         options.dh = results.pubkey;

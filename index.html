@@ -8,83 +8,86 @@
   </head>
   <body>
   <h1>Web Push Data Encryption Test Page</h1>
+    <div class="fromBrowser">
+    <h2>From the browser:</h2>
+    <p>These elements are provided to the WebApp from the 
+       <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
+       
+    call. These values should be relayed directly to your back-end Application
+    Server (AppServer). </p>
     <div id="endpoint">
-    <label for="endpoint">Endpoint:</label><input name="endpoint" value="http://example.com/" class="value">
-    </div>
-    <div id="salt">
-    <label for="salt">Salt:</label><input name="salt" class="salt value" value="salt">
+    <div class="title">endpoint</div>
+    <div class="description">The <code>.endpoint</code> is the URI where you 
+        should POST the encrypted message content.</div>
+    <input name="endpoint" value="http://example.com/" class="value endpoint">
     </div>
     <div id="remoteKey">
-    <label for="remoteKey">Remote Key:</label><textarea class="value" name="remoteKey" ></textarea>
+    <div class="title">p256dh Key</div>
+    <div class="description">The "p256dh" key is the ECDH curve p256 Diffie Hellman key
+        returned as part of the subscription. You use 
+        <code>subscription.getKey('p256dh')</code> to retrieve this value</div>
+    <textarea class="value" name="remoteKey" ></textarea>
+    </div>
+    </div>
+    <div class="inputs">
+    <h2>Per Request Inputs</h2>
+    <p>These are normally the things you enter per encryption request.</p>
+    <div id="salt">
+    <div class="title">Salt:</div>
+    <div class="description">The salt is an arbitrary array of bytes.</div>
+    <input name="salt" class="salt value" value="salt">
     </div>
     <div id="data">
-    <label for="data">Data:</label><textarea name="data">This is test data.
+    <div class="title">Data:</div>
+    <div class="description">This is your data. For this demonstration, we're going 
+    to presume that it's a string, but the data can be 
+    <a href="https://w3c.github.io/push-api/#pushmessagedata-interface">any format</a>. 
+    Just be sure that the service worker 'push' event handler knows how to read it.</div>
+    <textarea name="data">This is test data.
 </textarea>
-<!-- `Twas brillig, and the slithy toves
-Did gyre and gimble in the wabe:
- All mimsy were the borogoves,
-  And the mome raths outgrabe.
-
- "Beware the Jabberwock, my son!
-  The jaws that bite, the claws that catch!
- Beware the Jubjub bird, and shun
-  The frumious Bandersnatch!"
-
- He took his vorpal sword in hand:
-  Long time the manxome foe he sought -
- So rested he by the Tumtum tree,
-  And stood awhile in thought.
-
- And, as in uffish thought he stood,
-  The Jabberwock, with eyes of flame,
- Came whiffling through the tulgey wood,
-  And burbled as it came!
-
- One, two! One, two! And through and through
-  The vorpal blade went snicker-snack!
- He left it dead, and with its head
-  He went galumphing back.
-
- "And, has thou slain the Jabberwock?
-  Come to my arms, my beamish boy!
- O frabjous day! Callooh! Callay!'
-  He chortled in his joy.
-
- `Twas brillig, and the slithy toves
-  Did gyre and gimble in the wabe;
- All mimsy were the borogoves,
-  And the mome raths outgrabe. 
-    </textarea>
--->
-</div>
-<div id="ctrl">
-<button id="refresh" >Refresh</button>
+    <div id="data_ok" class="hidden">All good! The service worker managed to get and understand the data.</div>
+    <div id="data_err" class="hidden">No good. There was a problem with the service worker 
+        handling the data.<br>
+        Check the console and retry to see if it's still a problem.
+        Also try Copying the "<a href="#curl">curl</a>" buffer below into a command line. If things work, this text 
+        will turn green.</div>
+    </div>
+    <div id="ctrl">
+    <button id="refresh" >Refresh</button>
+    </div>
 </div>
 <div class="static">
+    <h2>Per request content</h2>
+    <p>These items (plus the <span class="salt">Salt</span>) are unique per 
+    encryption, and usually generated "on the fly" by the various algorythms.</p>
     <div id="localKeyPri">
         <div class="title">Local Key (private):</div>
         <div class="description">The private portion of the Local Key.</div>
-        <div class="value wrap"></textarea>
+        <div class="value wrap"></div>
     </div>
     <div id="localKeyPub">
         <div class="title">Local Key (public):</div>
         <div class="description">Negotiation requires a locally generated
         key pair. This key is temporary, but the public key needs to be
         sent as the <span class="def">Encryption Key</span></div>
-        <textarea class="value"></textarea>
+        <div class="value"></div>
     </div>
-    <div id="localKeyPubRaw">
+    <div id="dhKey">
         <div class="title">Local Key (public, raw):</div>
         <div class="description">This is the same local public key, only formatted in "raw" form. This is the byte array that is used for deriving
             the <span class="nonce">nonce</span></div>
-        <div class="value localKeyPubRaw"></div>
+        <div class="value dhKey"></div>
     </div>
+</div>
+<div class="encrypt">
+    <h2>Encryptor content</h2>
+    <p>These items are the various intermediary and final elements used to
+    generate the encryption key.</p>
     <div id="sharedKey">
         <div class="title">Shared Key:</div>
         <div class="description">AES-GCM key material derived from the local key.</div>
         <div class="value"></div>
     </div>
-    <div id="encrypt">
         <div id="gcmB">
             <div class="title">Encryption Key</div>
             <div class="description">HKDF generated Bits derived from the shared key material.</div>
@@ -95,7 +98,7 @@ Did gyre and gimble in the wabe:
             <div class="description">The "nonce" here is derived from the static
                string, run through the KDF which has been seeded from the
                <span class="salt">salt</span> 
-                and the <span class="localKeyPubRaw"> localKey</span>.</div>
+                and the <span class="dhKey"> localKey</span>.</div>
             <div class="value nonce"></div>
         </div>
         <div id="iv">
@@ -108,10 +111,11 @@ Did gyre and gimble in the wabe:
             <div class="value"></div>
         </div>
     </div>
-    <!-- div id="output">
-        <div class="title">Output:</div>
-        <div class="value"></span>
-    </div -->
+<div class="out">
+    <h2>Outputs</h2>
+    <p>These are the outputs. You can either cut and paste the <b>Curl</b>
+    content and 
+    <a name="curl">
     <div id="curl">
         <div class="title">Curl:</div>
         <div class="description">This is a proxy for your library. Please
@@ -121,34 +125,70 @@ Did gyre and gimble in the wabe:
         will not work.</div>
         <div class="value wrap"></div>
     </div>
-    <div id="out">
     <div id="osalt">
         <div class="title">Salt:</div>
-        <div class="description">The salt value sent.</div>
+        <div class="description">The salt value sent in the "Encryption" 
+        header.</div>
         <div class="value salt wrap"></div></div>
     <div id="odh">
         <div class="title">dh:</div>
-        <div class="description">Diffie-Hellman key sent.</div>
-        <div class="value wrap"></div>
+        <div class="description">Diffie-Hellman key sent in the "Encryption-Key"
+        header.</div>
+        <div class="value wrap dhKey"></div>
     </div>
     <div id="odata">
         <div class="title">data:</div>
-        <div class="description">This is the raw, encrypted data.</div>
-        <!-- div class="value"></div -->
-        <div class="ctrl"><button id="saveas">Save Data As...</button></div>
+        <div class="description">This is the raw, encrypted data represented 
+        as hexidecimal byte pairs. If you wish, you can compare these with
+        whatever byte editor you have (e.g. <code>xxd</code>
+        on Linux systems) to verify that the data is correct.
+        </div>
+        <div class="value"></div>
+        <div class="ctrl"><button id="saveas">Save Data As...</button> <span class="note">Experimental!</span></div>
     </div>
 </div>
   </body>
   <script src="FileSaver.js"></script>
-  <script src="ece.js"></script>
+  <script src="fetch.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script>
 
+function show_ok(state) {
+    let ocl = document.getElementById("data_ok").classList;
+    let ecl = document.getElementById("data_err").classList;
+    if (state) {
+        if (ocl.contains("hidden")) {
+            ocl.remove("hidden");
+        }
+        if (!ecl.contains("hidden")) {
+            ecl.add("hidden");
+        }
+    } else {
+        if (!ocl.contains("hidden")) {
+            ocl.add("hidden");
+        }
+        if (ecl.contains("hidden")) {
+            ecl.remove("hidden");
+        }
+    }
+}
+
 function register() {
-    /* Register the service worker */
-    navigator.serviceWorker.register("https://evilonastick.com/push/sw.js")
+    /* Register the service worker.
+       Remember, the service worker script must be served either from 
+       "localhost" or from a TLS secured site (e.g. https://example.com)
+
+     */
+    navigator.serviceWorker.register("sw.js")
         .then( function(swReg){
+            /* The service worker script has been loaded, so
+               now we need to register for an endpoint.
+
+               Normally, you only need to register once, the first
+               time that you ever load a given app or page.
+               
+            */
             console.debug("Registering...", swReg);
             swReg.pushManager.subscribe({
                 userVisibleOnly:true,
@@ -216,89 +256,91 @@ function go(remoteKey) {
                 // Populate the extra fields
                 output('osalt', base64url.encode(d.salt));
                 output('odh', base64url.encode(d.dh));
-                // TODO: neither of these export binary data correctly, 
-                //       so curl can process it the same as fetch();
-                // TODO: Why isn't this converting to straight binary?
-                var blob = new Blob(d.body, 
-                    {type: "application/octet-binary"});
-                document.getElementById('saveas').onclick = function(){
-                    saveAs(blob, "encrypted.data");
-                };
                 // Construct the curl. Remember, this needs to 
                 // write a binary file first, then have curl read that file.
                 // This is because putting the data "inline" can fail.
                 let outStr = "";
                 let sbody = "";
-                // TODO: doesn't produce same output as above.
+                let ebody = "";
+                let cbody = "";
                 for (let k in d.body){
-                    sbody += "\\x" + (d.body[k]).toString(16);
+                    let ik = parseInt(k);
+                    let ij = parseInt(d.body[k]);
+                    sbody += "\\x" + (ij).toString(16);
+                    cbody += String.fromCodePoint(ij);
+                    ebody += (ij).toString(16);
+                    if ((ik + 1) % 2 == 0) {
+                        ebody += " ";
+                    }
+                    if ((ik + 1) % 16 == 0) {
+                        ebody += "<br>";
+                    }
                 }
-                outStr += 'echo -ne "' + sbody + '" > encr.msg;\n';
-                outStr += "curl -v -X " + d.method + " " + d.endpoint + " ";
+                outStr += 'echo -ne "' + sbody + '" > encrypted.data;\n';
+                outStr += "curl -v -X " + d.method + 
+                    ' <span class="endpoint">' + d.endpoint + "</span> ";
+                outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
+                    'class="dhKey">' + base64url.encode(d.dh) + '</span>"';
+                outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
+                    'class="salt">' + base64url.encode(d.salt) + '</span>"';
+                outStr += ' -H "content-encoding: aesgcm128"';
+                /*
                 for (let k in d.pheaders) {
+
                     outStr += " -H \"" + k + ": "+ d.pheaders[k] +"\" "
                 }
+                */
                 outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
+                output('odata', ebody);
+                var blob = new Blob([cbody], 
+                    {type: "application/octet-binary"});
+                document.getElementById('saveas').onclick = function(){
+                    saveAs(blob, "encrypted.data");
+                };
               });
-    console.debug(encr);
 }
 
+// Try to get a subscription
 getSubscription()
     .then(function(sub) {
         if (!sub) {
-            console.error("Got empty subscription info block");
+            console.error("Got empty subscription info block:");
             throw("EmptySub");
         }
         return sub;
      })
     .then(function(sub) {
-        console.debug("Sub:", sub);
-        if (true) {
-            if (!sub.getKey) {
-                console.error("Crap, subscription doesn't have a key. " +
-                              "Aborting.");
-                return;
-            }
-            var key = base64url.encode(sub.getKey('p256dh'));
-            console.info("Key: ", key);
-            return key;
-        } else {
-            // generate the fakey remote key
-            v = webCrypto.generateKey(P256DH, true, ['deriveKey'])
-                .then(key =>{
-                    console.debug("Saving key...");
-                    saveKey('p256dh', key);
-                    webCrypto.exportKey('raw', key.publicKey)
-                        .then(pkey => {
-                            skey = base64url.encode(pkey);
-                            console.debug('remoteKey', skey);
-                            output('remoteKey', skey);
-                            go(skey);
-                        })
-                        .catch(err => console.error("key save:", err));
-            });
-            return v;
+        console.debug("Subscription Object returned from Push Manager:", sub);
+        if (!sub.getKey) {
+            console.error("Crap, subscription doesn't have data encryption keys. " +
+                          "Aborting.");
+            return;
         }
+        var key = base64url.encode(sub.getKey('p256dh'));
+        console.debug("p256dh Key: ", key);
+        return key;
            
     })
     .then(key => { 
-        if (key) {go(key)}
+        if (key) {
+            // We have a key, try to do a test encryption run.
+            go(key)
+        }
     })
     .catch(function(err) {
-        console.error("attempting local decode:", err);
+        console.error("Could not get a subscription:", err);
     });
 
 document.getElementById("refresh").onclick = function(event) {
     go(document.getElementsByName("remoteKey")[0].value);
 }
 
-document.addEventListener("message", function(e){
-    console.log("Main got", e, e.data);
-});
-
 navigator.serviceWorker.addEventListener('message', function(event) {
-  console.debug("swMessage", event.data);
+    console.debug("Service Worker sent:", event.data);
+    // Compare what we got with the source to make sure that things worked ok.
+    let source = document.getElementsByName("data")[0].value;
+    show_ok(source == event.data);
 });
 
   </script>

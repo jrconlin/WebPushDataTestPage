@@ -1,20 +1,25 @@
 * {margin:0;padding:0;font:100% Arial;}
-label{color:#333;display:inline-block;min-width:10em;text-align:right;vertical-align:top;padding:0 .5em 0 0;}
 body {margin:0 auto;max-width:60em;color:#333;}
 div {min-height:2em;width:100%;}
 h1 {font-size:200%;font-weight:bold;}
+h2 {font-size:125%;text-indent:-3em;font-weight:bold;}
 input {width:80%;font-family:"courier new",courier,monospace;}
 textarea {width:80%;height:12EX;font-family:"courier new",courier,monospace;}
-.localKeyPubRaw {color:green;font-weight:bold;}
-.salt {color:blue;font-weight:bold;}
-.value {margin-bottom: 2em;}
+.fromBrowser,.inputs,.static,.encrypt,.out{padding:0 0 0 4em;background-color:#EFF;border-width:2px 0;border-color:#2FF;border-style:solid;}
+.endpoint {color: #33F;}
+.value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;}
+.dhKey {color:green;font-weight:bold;}
+.salt {color:#609;font-weight:bold;}
+.value {margin-bottom: 2em;white-space:pre-wrap;word-break:break-all;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;}
-.static .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:90%;}
-.static {padding:0 0 0 4em;background-color:#EFF;border:1px solid #2FF;}
+.static .value {width:90%;}
 .title {text-indent:-3em;}
-#encrypt {text-background:#EFF;border:1px solid #CFF;}
-.wrap {white-space:pre-wrap;word-break:break-all;}
+.inputs {padding:0 0 0 4em;}
+.encrypt {text-background:#EFF;border:1px solid #CFF;}
 #curl .value{color: #333;background-color:#FEFEFE;}
 #odata .value{color: #333;background-color:#FEFEFE;}
 #curl .value .body {font:100% "courier new",courier,monospace;}
+#data_ok {color:green;}
+#data_err {color:red;}
+.hidden {display:none;}
