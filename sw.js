@@ -25,8 +25,11 @@ self.addEventListener('push', function(event)  {
         for(let k in this) {
             console.log("this.", k);
         }
-        // TODO: send the event to the parent page
-        self.postMessage(content);
+        // Send the event to the parent page
+        event.waitUntil(
+          self.clients.matchAll()
+          .then(clientList => clientList.forEach(client => client.postMessage(content)))
+        );
     }
 });
 
