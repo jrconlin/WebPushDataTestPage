@@ -150,9 +150,6 @@ function register() {
     navigator.serviceWorker.register("https://evilonastick.com/push/sw.js")
         .then( function(swReg){
             console.debug("Registering...", swReg);
-            swReg.addEventListener('message', function(event) {
-                console.debug("swMessage", event);
-            });
             swReg.pushManager.subscribe({
                 userVisibleOnly:true,
             })
@@ -300,6 +297,9 @@ document.addEventListener("message", function(e){
     console.log("Main got", e, e.data);
 });
 
+navigator.serviceWorker.addEventListener('message', function(event) {
+  console.debug("swMessage", event.data);
+});
 
   </script>
 </html>
