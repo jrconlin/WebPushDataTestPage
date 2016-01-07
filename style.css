@@ -1,12 +1,16 @@
 * {margin:0;padding:0;font:100% Arial;}
-body {margin:0 auto;max-width:60em;color:#333;}
+body {margin:0 auto;max-width:60em;color:#333; background-color:#FeFeFe;}
 div {min-height:2em;width:100%;}
 h1 {font-size:200%;font-weight:bold;}
 h2 {font-size:125%;text-indent:-3em;font-weight:bold;}
-input {width:80%;font-family:"courier new",courier,monospace;}
-textarea {width:80%;height:12EX;font-family:"courier new",courier,monospace;}
-.fromBrowser,.inputs,.static,.encrypt,.out{padding:0 0 0 4em;background-color:#EFF;border-width:2px 0;border-color:#2FF;border-style:solid;}
+input {width:80%;font-family:"courier new",courier,monospace;border:1px solid;}
+textarea {width:80%;height:12EX;font-family:"courier new",courier,monospace;border:1px solid;}
+p,.description {margin-bottom:.5em;color:#666;}
+code {font: 90% "courier new",courier, monospace;}
+.intro, .fromBrowser,.inputs,.static,.encrypt,.out{padding:0 0 0 4em;}
+.fromBrowser,.inputs,.static,.encrypt,.out{background-color:#EFF;border-width:2px 0;border-color:#2FF;border-style:solid;}
 .endpoint {color: #33F;}
+#errMsg {color:red;}
 .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;}
 .dhKey {color:green;font-weight:bold;}
 .salt {color:#609;font-weight:bold;}
@@ -20,6 +24,6 @@ textarea {width:80%;height:12EX;font-family:"courier new",courier,monospace;}
 #curl .value{color: #333;background-color:#FEFEFE;}
 #odata .value{color: #333;background-color:#FEFEFE;}
 #curl .value .body {font:100% "courier new",courier,monospace;}
-#data_ok {color:green;}
-#data_err {color:red;}
+.data_ok {color:green;}
+.data_err {color:red;}
 .hidden {display:none;}

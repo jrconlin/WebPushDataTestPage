@@ -34,7 +34,7 @@
   // Per the WebPush API, there are known token values that are used for some
   // portions of the Nonce creations.
   var ENCRYPT_INFO = new TextEncoder('utf-8').encode(
-    "Content-Encoding: aesgcm128");
+     "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
 
   function textWrap(text, limit) {
@@ -61,17 +61,6 @@
       return new Uint8Array(data.buffer);
     }
     throw new Error('webpush() needs a string or BufferSource');
-  }
-
-  function bsConcat(arrays) {
-    // Concatinate the byte arrays.
-    var size = arrays.reduce((total, a) => total + a.byteLength, 0);
-    var index = 0;
-    return arrays.reduce((result, a) => {
-      result.set(new Uint8Array(a), index);
-      index += a.byteLength;
-      return result;
-    }, new Uint8Array(size));
   }
 
   function hmac(key) {
@@ -136,7 +125,7 @@
      * @param salt          A random "salt" value for the encrypted data
      * @param data          The data to encrypt
      */
-    console.debug("encrypt", localKey, remoteShare, salt, data);
+    console.debug("calling encrypt(", localKey, remoteShare, salt, data, ")");
     // Note: Promises can make things a bit hard to follow if you're not
     // familiar with how they work. I'm not going to try to duplicate the
     // fine work of articles like
@@ -155,10 +144,10 @@
           // Ok, we've got a representation of the remote key.
           // Now, derive a shared key from our temporary local key
           // and the remote key we just created.
-          console.debug("remoteKey", remoteKey);
+          console.debug("client p256dh key:", remoteKey);
           var args = {name: P256DH.name,
                       public: remoteKey}
-          console.debug("deriving: ", args, localKey, 256)
+          console.debug("deriving new key: ", args, localKey, 256)
           return webCrypto.deriveBits(args,
                                       localKey,
                                       256)
@@ -170,8 +159,16 @@
           output("sharedKey", sharedKeyStr);
 
           // Use hkdf to generate both the encryption array and the nonce.
+          // See hkdf() in base64.js
           var kdf = new hkdf(salt, sharedKey);
+          // Generate the encryptingData, the base object that contains the
+          // key and nonce we'll use to actually encrypt the text to be
+          // sent.
           return Promise.allMap({
+            // The key is generated from a known pattern that's fed to
+            // the hkdf that's been initialized off of the salt and the
+            // sharedKey derived from the public half of the ECDH key
+            // from the browser (the p256dh key)
             key: kdf.generate(ENCRYPT_INFO, 16)
               .then(gcmBits => {
                 output('gcmB', base64url.encode(new Int8Array(gcmBits)));
@@ -201,6 +198,9 @@
                    //console.debug("slice   :", base64url.encode(slice));
                    //console.debug("padded  :", base64url.encode(padded));
                    //console.debug("original:", new TextDecoder('utf-8').decode(padded));
+                  // Generate the Initialization Vector (iv) for this block
+                  // based on the previously generated nonce and the offset
+                  // of the block.
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
                    var edata= webCrypto.encrypt(
@@ -213,6 +213,7 @@
                    return edata;
           }));
     }).then(data=> {
+        // Turn the object
         return bsConcat(data);
     })
     .catch(
@@ -300,14 +301,15 @@
             .then(response => {
                 if (! response.ok) {
                     if (response.status == 400) {
-                        console.error("Server returned 400. Probably " + 
-                        "missing headers. Try refreshing to see if " +
-                        "fetch() will send them.");
-                        throw new Error("fetch() failed to include headers. Refresh");
+                        show_err("Server returned 400. Probably " +
+                        "missing headers.<br>Try refreshing to see if " +
+                        "the browser's fetch() call will send them.");
+                        show_ok(false);
+                        throw new Error("Server Returned 400");
                     }
-                    throw new Error('Unable to deliver message: ', 
+                    throw new Error('Unable to deliver message: ',
                                     JSON.stringify(response));
-              } 
+              }
             })
             .catch(err =>{
                  console.error("Send Failed: ", err);

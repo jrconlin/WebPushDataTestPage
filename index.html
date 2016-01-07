@@ -8,23 +8,49 @@
   </head>
   <body>
   <h1>Web Push Data Encryption Test Page</h1>
+    <div id="errMsg" class="hidden"></div>
+    <div class="intro">
+    <h2>Introduction</h2>
+    <p>The <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API">Push APIs</a>
+    (also known as Web-Push) provide the ability for Application Servers
+    (App Servers) to send up to 4 Kilobites of data to applications.
+    In order to do this safely, the data needs to be encrypted so that the
+    Push Servers can't easily read it. To make sure that data is properly
+    encrypted, the remote browser will decrypt it and hand your application
+    the data.</p>
+    <p>Unfortunately, such security comes at a cost. The method of encryption
+    used can be a bit tricky and confusing to folks that may not be intimately
+    familiar with how this should work. This page attempts to provide insight
+    into how the encryption should work. It's a "known working case" that
+    tries to show all the moving pieces so that library authors or application
+    developers can get started.</p>
+    <p>This page will create a live Web Push connection to itself. You can
+    use it to test your code or library. It may be useful to open the
+    Web Debugging Console (Ctrl+Shift+K on Firefox) and note the messages
+    being generated in the console log.</p>
+    </div>
     <div class="fromBrowser">
     <h2>From the browser:</h2>
-    <p>These elements are provided to the WebApp from the 
+    <p>These elements are provided to the WebApp from the
        <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
-       
-    call. These values should be relayed directly to your back-end Application
-    Server (AppServer). </p>
+
+    call. These values should be relayed directly to your back-end App
+    Server via your app. Never send this information through the Push
+    Servers!</p>
     <div id="endpoint">
     <div class="title">endpoint</div>
-    <div class="description">The <code>.endpoint</code> is the URI where you 
-        should POST the encrypted message content.</div>
-    <input name="endpoint" value="http://example.com/" class="value endpoint">
+    <div class="description">The <code>subscription.endpoint</code> is
+        the URI where you
+        should POST the encrypted message content. To make things easier,
+        the page will fetch one for itself. Feel free to replace this with
+        a different endpoint if you wish and press the Refresh button below.
+    </div>
+    <textarea name="endpoint" value="http://example.com/" class="value endpoint"></textarea>
     </div>
     <div id="remoteKey">
     <div class="title">p256dh Key</div>
     <div class="description">The "p256dh" key is the ECDH curve p256 Diffie Hellman key
-        returned as part of the subscription. You use 
+        returned as part of the subscription. You use
         <code>subscription.getKey('p256dh')</code> to retrieve this value</div>
     <textarea class="value" name="remoteKey" ></textarea>
     </div>
@@ -34,22 +60,25 @@
     <p>These are normally the things you enter per encryption request.</p>
     <div id="salt">
     <div class="title">Salt:</div>
-    <div class="description">The salt is an arbitrary array of bytes.</div>
+    <div class="description">The salt is an arbitrary array of bytes the
+        App Server generates for each outbound encrypted request.
+        This should change for every request, but it can be helpful for
+        library authors to see the same salt value.</div>
     <input name="salt" class="salt value" value="salt">
     </div>
     <div id="data">
     <div class="title">Data:</div>
-    <div class="description">This is your data. For this demonstration, we're going 
-    to presume that it's a string, but the data can be 
-    <a href="https://w3c.github.io/push-api/#pushmessagedata-interface">any format</a>. 
+    <div class="description">This is your data. For this demonstration, we're going
+    to presume that it's a string, but the data can be
+    <a href="https://w3c.github.io/push-api/#pushmessagedata-interface">any format</a>.
     Just be sure that the service worker 'push' event handler knows how to read it.</div>
     <textarea name="data">This is test data.
 </textarea>
-    <div id="data_ok" class="hidden">All good! The service worker managed to get and understand the data.</div>
-    <div id="data_err" class="hidden">No good. There was a problem with the service worker 
+    <div class="data_ok hidden">All good! The service worker managed to get and understand the data.</div>
+    <div class="data_err hidden">No good. There was a problem with the service worker
         handling the data.<br>
         Check the console and retry to see if it's still a problem.
-        Also try Copying the "<a href="#curl">curl</a>" buffer below into a command line. If things work, this text 
+        Also try Copying the "<a href="#curl">curl</a>" buffer below into a command line. If things work, this text
         will turn green.</div>
     </div>
     <div id="ctrl">
@@ -58,11 +87,13 @@
 </div>
 <div class="static">
     <h2>Per request content</h2>
-    <p>These items (plus the <span class="salt">Salt</span>) are unique per 
+    <p>These items (plus the <span class="salt">Salt</span>) are unique per
     encryption, and usually generated "on the fly" by the various algorythms.</p>
     <div id="localKeyPri">
         <div class="title">Local Key (private):</div>
-        <div class="description">The private portion of the Local Key.</div>
+        <div class="description">The private portion of the Local Key.
+        Unfortunately, it's not easy to read this from a provided value.
+        </div>
         <div class="value wrap"></div>
     </div>
     <div id="localKeyPub">
@@ -97,7 +128,7 @@
             <div class="title">Derived Nonce:</div>
             <div class="description">The "nonce" here is derived from the static
                string, run through the KDF which has been seeded from the
-               <span class="salt">salt</span> 
+               <span class="salt">salt</span>
                 and the <span class="dhKey"> localKey</span>.</div>
             <div class="value nonce"></div>
         </div>
@@ -113,21 +144,28 @@
     </div>
 <div class="out">
     <h2>Outputs</h2>
-    <p>These are the outputs. You can either cut and paste the <b>Curl</b>
-    content and 
+    <p>These are the outputs. You can cut and paste the <b>Curl</b>
+    content and watch the Web Console to see the message be received and
+    handled by the Service Worker.</p>
     <a name="curl">
     <div id="curl">
         <div class="title">Curl:</div>
         <div class="description">This is a proxy for your library. Please
-        note that the input for this is a binary blob. In this case, I'm 
-        attempting to write the data out to a file, then read it in with 
+        note that the input for this is a binary blob. In this case, I'm
+        attempting to write the data out to a file, then read it in with
         curl. Transcoding the data to base64 or some other encoding mechanism
         will not work.</div>
         <div class="value wrap"></div>
+        <div class="data_ok hidden">All good! The service worker
+            managed to get and understand the data.</div>
+        <div class="data_err hidden">No good. There was a problem
+            with the service worker handling the data.<br>
+        Check the console and retry to see if it's still a problem.
+        </div>
     </div>
     <div id="osalt">
         <div class="title">Salt:</div>
-        <div class="description">The salt value sent in the "Encryption" 
+        <div class="description">The salt value sent in the "Encryption"
         header.</div>
         <div class="value salt wrap"></div></div>
     <div id="odh">
@@ -138,13 +176,13 @@
     </div>
     <div id="odata">
         <div class="title">data:</div>
-        <div class="description">This is the raw, encrypted data represented 
+        <div class="description">This is the raw, encrypted data represented
         as hexidecimal byte pairs. If you wish, you can compare these with
         whatever byte editor you have (e.g. <code>xxd</code>
         on Linux systems) to verify that the data is correct.
         </div>
         <div class="value"></div>
-        <div class="ctrl"><button id="saveas">Save Data As...</button> <span class="note">Experimental!</span></div>
+        <div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div>
     </div>
 </div>
   </body>
@@ -155,28 +193,50 @@
   <script>
 
 function show_ok(state) {
-    let ocl = document.getElementById("data_ok").classList;
-    let ecl = document.getElementById("data_err").classList;
+    let o = document.getElementsByClassName("data_ok");
+    let e = document.getElementsByClassName("data_err");
     if (state) {
-        if (ocl.contains("hidden")) {
-            ocl.remove("hidden");
+        for(let i=0;i<o.length;i++) {
+            if (o[i].classList.contains("hidden")) {
+                o[i].classList.remove("hidden");
+                }
         }
-        if (!ecl.contains("hidden")) {
-            ecl.add("hidden");
+        for(let i=0;i<e.length;i++) {
+            if (!e[i].classList.contains("hidden")) {
+                e[i].classList.add("hidden");
+                }
         }
+        show_err("");
     } else {
-        if (!ocl.contains("hidden")) {
-            ocl.add("hidden");
+        for (let i=0;i<o.length;i++) {
+            if (!o[i].classList.contains("hidden")) {
+                o[i].classList.add("hidden");
+            }
         }
-        if (ecl.contains("hidden")) {
-            ecl.remove("hidden");
+        for (let i=0;i<e.length;i++) {
+            if (e[i].classList.contains("hidden")) {
+                e[i].classList.remove("hidden");
+            }
         }
     }
 }
 
+function show_err(errMsg) {
+    let err = document.getElementById("errMsg");
+    if (errMsg == "") {
+        err.innerHTML="";
+        err.classList.add("hidden");
+        return;
+    }
+    err.innerHTML = errMsg;
+    err.classList.remove("hidden");
+    return;
+}
+
+
 function register() {
     /* Register the service worker.
-       Remember, the service worker script must be served either from 
+       Remember, the service worker script must be served either from
        "localhost" or from a TLS secured site (e.g. https://example.com)
 
      */
@@ -187,14 +247,13 @@ function register() {
 
                Normally, you only need to register once, the first
                time that you ever load a given app or page.
-               
+
             */
             console.debug("Registering...", swReg);
             swReg.pushManager.subscribe({
                 userVisibleOnly:true,
             })
             .then(function(sub) {
-                console.info("subscription:", sub);
                 if (! sub.endpoint) {
                     console.error("Crap, subscription doesn't have an " +
                                   "endpoint. Aborting.");
@@ -202,9 +261,9 @@ function register() {
                 }
                 output('endpoint', sub.endpoint);
                 output('remoteKey', base64url.encode(sub.getKey('p256dh')));
-                console.debug ("Auth key: ", 
-                                base64url.encode(sub.getKey('auth')));
-                output('salt', 
+                // console.debug ("Auth key: ",
+                //                base64url.encode(sub.getKey('auth')));
+                output('salt',
                        base64url.encode(crypto.getRandomValues(
                                             new Uint8Array(16))));
                 return sub.endpoint;
@@ -214,7 +273,15 @@ function register() {
             });
         })
     .catch(function(err) {
+        if (err.name == "SecurityError") {
+            show_err("Could not start.<br>This page requires a secure " +
+                     "server. (e.g. one that can serve https:// pages). " +
+                     "<br>The page can also be served from `localhost'.");
+            return
+        }
         console.error("Registration Error:", err);
+        msg = "Could not start.<br> "
+        show_err(msg);
     });
 };
 
@@ -248,15 +315,15 @@ function go(remoteKey) {
         remoteKey = document.getElementsByName("remoteKey")[0].value;
     }
     var data = document.getElementsByName("data")[0].value;
-    var encr = webpush({endpoint: endpoint, 
-                        p256dh: base64url.decode(remoteKey)}, 
+    var encr = webpush({endpoint: endpoint,
+                        p256dh: base64url.decode(remoteKey)},
                         data,
                         base64url.decode(salt))
         .then(d => {
                 // Populate the extra fields
                 output('osalt', base64url.encode(d.salt));
                 output('odh', base64url.encode(d.dh));
-                // Construct the curl. Remember, this needs to 
+                // Construct the curl. Remember, this needs to
                 // write a binary file first, then have curl read that file.
                 // This is because putting the data "inline" can fail.
                 let outStr = "";
@@ -277,7 +344,7 @@ function go(remoteKey) {
                     }
                 }
                 outStr += 'echo -ne "' + sbody + '" > encrypted.data;\n';
-                outStr += "curl -v -X " + d.method + 
+                outStr += "curl -v -X " + d.method +
                     ' <span class="endpoint">' + d.endpoint + "</span> ";
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
                     'class="dhKey">' + base64url.encode(d.dh) + '</span>"';
@@ -293,7 +360,7 @@ function go(remoteKey) {
                 outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
                 output('odata', ebody);
-                var blob = new Blob([cbody], 
+                var blob = new Blob([cbody],
                     {type: "application/octet-binary"});
                 document.getElementById('saveas').onclick = function(){
                     saveAs(blob, "encrypted.data");
@@ -305,24 +372,29 @@ function go(remoteKey) {
 getSubscription()
     .then(function(sub) {
         if (!sub) {
-            console.error("Got empty subscription info block:");
-            throw("EmptySub");
+            console.error("Got empty subscription info block. Aborting.");
+            let err = new Error();
+            err.name = "EmptySub";
+            err.message = "An empty Subscription object was returned.";
+            throw err;
         }
         return sub;
      })
     .then(function(sub) {
         console.debug("Subscription Object returned from Push Manager:", sub);
         if (!sub.getKey) {
-            console.error("Crap, subscription doesn't have data encryption keys. " +
+            console.error("Subscription doesn't have data encryption keys. " +
                           "Aborting.");
-            return;
+            let err = new Error();
+            err.name = "NoEncrypt";
+            err.message = "No encryption available for this subscription";
+            throw err;
         }
         var key = base64url.encode(sub.getKey('p256dh'));
-        console.debug("p256dh Key: ", key);
         return key;
-           
+
     })
-    .then(key => { 
+    .then(key => {
         if (key) {
             // We have a key, try to do a test encryption run.
             go(key)
@@ -330,6 +402,9 @@ getSubscription()
     })
     .catch(function(err) {
         console.error("Could not get a subscription:", err);
+        show_err("Someting prevented this page from getting a " +
+            "subscription. If you were asked permission, please " +
+            "agree.");
     });
 
 document.getElementById("refresh").onclick = function(event) {
