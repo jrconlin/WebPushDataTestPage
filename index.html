@@ -349,8 +349,8 @@ function go(remoteKey) {
                 // dump the raw curl to console.log. This is useful for
                 // folks doing device work. 
                 rawStr = outStr;
-                rawStr += "curl -v -X " + d.method + 
-                    ' ' + d.endpoint + " ";
+                rawStr += 'curl -v -X ' + d.method + 
+                    ' ' + d.endpoint + ' ';
                 rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
                     base64url.encode(d.dh) + '"';
                 rawStr += ' -H "encryption: keyid=p256dh;salt=' +
@@ -360,7 +360,7 @@ function go(remoteKey) {
                 console.log(rawStr);
                 // outStr is the styled version, which is easier for humans
                 outStr += "\ncurl -v -X " + d.method + 
-                    ' <span class="endpoint">' + d.endpoint + "</span> ";
+                    ' <span class="endpoint">' + d.endpoint + '</span> ';
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
                     'class="dhKey">' + base64url.encode(d.dh) + '</span>"';
                 outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
@@ -370,9 +370,9 @@ function go(remoteKey) {
                 output('curl', outStr);
                 output('odata', ebody);
                 var blob = new Blob([cbody],
-                    {type: "application/octet-binary"});
+                    {type: 'application/octet-binary'});
                 document.getElementById('saveas').onclick = function(){
-                    saveAs(blob, "encrypted.data");
+                    saveAs(blob, 'encrypted.data');
                 };
               });
 }
@@ -381,22 +381,22 @@ function go(remoteKey) {
 getSubscription()
     .then(function(sub) {
         if (!sub) {
-            console.error("Got empty subscription info block. Aborting.");
+            console.error('Got empty subscription info block. Aborting.');
             let err = new Error();
-            err.name = "EmptySub";
-            err.message = "An empty Subscription object was returned.";
+            err.name = 'EmptySub';
+            err.message = 'An empty Subscription object was returned.';
             throw err;
         }
         return sub;
      })
     .then(function(sub) {
-        console.debug("Subscription Object returned from Push Manager:", sub);
+        console.debug('Subscription Object returned from Push Manager:', sub);
         if (!sub.getKey) {
-            console.error("Subscription doesn't have data encryption keys. " +
-                          "Aborting.");
+            console.error('Subscription doesn\'t have data encryption keys. ' +
+                          'Aborting.');
             let err = new Error();
-            err.name = "NoEncrypt";
-            err.message = "No encryption available for this subscription";
+            err.name = 'NoEncrypt';
+            err.message = 'No encryption available for this subscription.';
             throw err;
         }
         var key = base64url.encode(sub.getKey('p256dh'));
@@ -410,22 +410,21 @@ getSubscription()
         }
     })
     .catch(function(err) {
-        console.error("Could not get a subscription:", err);
-        show_err("Someting prevented this page from getting a " +
-            "subscription. If you were asked permission, please " +
-            "agree.");
+        console.error('Could not get a subscription:', err);
+        show_err('Someting prevented this page from getting a ' +
+            'subscription. ' + err.message);
     });
 
-document.getElementById("refresh").onclick = function(event) {
-    go(document.getElementsByName("remoteKey")[0].value);
+document.getElementById('refresh').onclick = function(event) {
+    go(document.getElementsByName('remoteKey')[0].value);
 }
 
-document.getElementById("newSalt").onclick = function(event) {
-    output("salt", base64url.encode(newSalt()));
+document.getElementById('newSalt').onclick = function(event) {
+    output('salt', base64url.encode(newSalt()));
 }
 
 navigator.serviceWorker.addEventListener('message', function(event) {
-    console.debug("Service Worker sent:", event.data);
+    console.debug('Service Worker sent:', event.data);
     // Compare what we got with the source to make sure that things worked ok.
     let source = document.getElementsByName("data")[0].value;
     show_ok(source == event.data);
