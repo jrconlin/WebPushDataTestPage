@@ -328,7 +328,29 @@ function go(remoteKey) {
                 let outStr = "";
                 // Construct the curl. Remember, this needs to
                 // write a binary file first, then have curl read that file.
-                
+                // This is because putting the data "inline" can fail.
+                let sbody = "";
+                let ebody = "";
+                let cbody = "";
+                for (let k in d.body){
+                    let ik = parseInt(k);
+                    let ij = parseInt(d.body[k]);
+                    sbody += "\\x" + (ij).toString(16);
+                    cbody += String.fromCodePoint(ij);
+                    ebody += (ij).toString(16);
+                    if ((ik + 1) % 2 == 0) {
+                        ebody += " ";
+                    }
+                    if ((ik + 1) % 16 == 0) {
+                        ebody += "<br>";
+                    }
+                }
+                outStr += 'echo -ne "' + sbody + '" > encrypted.data;';
+                // dump the raw curl to console.log. This is useful for
+                // folks doing device work. 
+                rawStr = outStr;
+                rawStr += "curl -v -X " + d.method + 
+                    ' ' + d.endpoint + " ";
                 rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
                     base64url.encode(d.dh) + '"';
                 rawStr += ' -H "encryption: keyid=p256dh;salt=' +

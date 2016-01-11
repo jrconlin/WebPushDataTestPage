@@ -28,6 +28,10 @@ function chunkArray(array, size) {
     return result;
 }
 
+function newSalt() {
+    return window.crypto.getRandomValues(new Uint8Array(16));
+}
+
 /* I can't believe that this is needed here, in this day and age ...
 * Note: these are not efficient, merely expedient.
 */
