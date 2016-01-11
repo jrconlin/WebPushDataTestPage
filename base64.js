@@ -1,5 +1,6 @@
+/* This file contains a few core utilities and polyfills.
+ */
 'use strict';
-var g = window;
 
 // Write to the various div containers.
 function output(target, value) {
@@ -63,6 +64,8 @@ var base64url = {
     }
   };
 
+// Hash-Based Message Authentication Code
+// This generates a secure hash based on the key.
 function hmac(key) {
     this.keyPromise = webCrypto.importKey(
         'raw',
@@ -79,6 +82,9 @@ hmac.prototype.hash = function(input) {
     return val;
 };
 
+
+// HMAC (Hash-Based Message Authentication Code)-Based extract & expand Key
+// Derivation Function. (Yeah, that's why everyone calls it "hkdf")
 function hkdf(salt, ikm) {
     this.prkhPromise = new hmac(salt).hash(ikm)
       .then(prk => new hmac(prk));
@@ -93,9 +99,20 @@ hkdf.prototype.generate = function(info, len) {
         }
         var reply;
         reply  = h.slice(0, len);
-        // console.debug("hkdf gen", base64url.encode(new Int8Array(reply)));
         return reply;
       });
 };
+
+function bsConcat(arrays) {
+    // Concatenate the byte arrays into a single Uint8Array.
+    var size = arrays.reduce((total, a) => total + a.byteLength, 0);
+    var index = 0;
+    return arrays.reduce((result, a) => {
+        result.set(new Uint8Array(a), index);
+        index += a.byteLength;
+        return result;
+    }, new Uint8Array(size));
+}
+
 
 window.base64url = base64url;
