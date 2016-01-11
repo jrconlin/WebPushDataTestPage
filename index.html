@@ -144,7 +144,7 @@
         on Linux systems) to verify that the data is correct.
         </div>
         <div class="value"></div>
-        <div class="ctrl"><button id="saveas">Save Data As...</button> <span class="note">Experimental!</span></div>
+        <div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div>
     </div>
 </div>
   </body>
@@ -276,11 +276,23 @@ function go(remoteKey) {
                         ebody += "<br>";
                     }
                 }
-                outStr += 'echo -ne "' + sbody + '" > encrypted.data;\n';
-                outStr += "curl -v -X " + d.method + 
+                outStr += 'echo -ne "' + sbody + '" > encrypted.data;';
+                rawStr = outStr;
+                rawStr += "curl -v -X " + d.method + 
+                    ' ' + d.endpoint + " ";
+                rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
+                    base64url.encode(d.dh) + '"';
+                rawStr += ' -H "encryption: keyid=p256dh;salt=' +
+                    base64url.encode(d.salt) + '"';
+                rawStr += ' -H "content-encoding: aesgcm128"';
+                rawStr += ' --data-binary @encrypted.data';
+                console.log(rawStr);
+                outStr += "\ncurl -v -X " + d.method + 
                     ' <span class="endpoint">' + d.endpoint + "</span> ";
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
                     'class="dhKey">' + base64url.encode(d.dh) + '</span>"';
+                outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
+                    'class="salt">' + base64url.encode(d.salt) + '</span>"';
                 outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
                     'class="salt">' + base64url.encode(d.salt) + '</span>"';
                 outStr += ' -H "content-encoding: aesgcm128"';
