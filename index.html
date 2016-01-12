@@ -186,6 +186,9 @@
         <div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div>
     </div>
 </div>
+<div class="footer">
+    <p>Source available on <a href="https://github.com/jrconlin/WebPushDataTestPage">GitHub</a>. Licensed under <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License v.2.0</a></p>
+</div>
   </body>
   <script src="FileSaver.js"></script>
   <script src="fetch.js"></script>
@@ -359,9 +362,9 @@ function go(remoteKey) {
                 }
                 outStr += 'echo -ne "' + sbody + '" > encrypted.data;';
                 // dump the raw curl to console.log. This is useful for
-                // folks doing device work. 
+                // folks doing device work.
                 rawStr = outStr;
-                rawStr += 'curl -v -X ' + d.method + 
+                rawStr += 'curl -v -X ' + d.method +
                     ' ' + d.endpoint + ' ';
                 rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
                     base64url.encode(d.dh) + '"';
@@ -371,7 +374,7 @@ function go(remoteKey) {
                 rawStr += ' --data-binary @encrypted.data';
                 console.log(rawStr);
                 // outStr is the styled version, which is easier for humans
-                outStr += "\ncurl -v -X " + d.method + 
+                outStr += "\ncurl -v -X " + d.method +
                     ' <span class="endpoint">' + d.endpoint + '</span> ';
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
                     'class="dhKey">' + base64url.encode(d.dh) + '</span>"';
