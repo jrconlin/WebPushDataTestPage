@@ -2,6 +2,7 @@
  * application can run. It has limited capabilities and permissions.
  * See: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/Social_API/Service_worker_API_reference
  */
+'use strict';
 
 self.addEventListener('push', function(event)  {
     /* Push events arrive when a push message is received.

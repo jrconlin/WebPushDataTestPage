@@ -192,6 +192,7 @@
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script>
+'use strict';
 
 function show_ok(state) {
     let o = document.getElementsByClassName("data_ok");
@@ -258,7 +259,18 @@ function register() {
                 if (! sub.endpoint) {
                     console.error("Crap, subscription doesn't have an " +
                                   "endpoint. Aborting.");
-                    return;
+                    err = new Error();
+                    err.name = "NoEndpoint";
+                    err.message = "Subscription does not have an endpoint";
+                    throw err;
+                }
+                if (! sub.getKey) {
+                    console.error("Crap, subscription doesn't allow " +
+                                  "data encryption. Aborting.");
+                    err = new Error();
+                    err.name = "NoData";
+                    err.message = "Subscription does not allow data";
+                    throw err;
                 }
                 output('endpoint', sub.endpoint);
                 output('remoteKey', base64url.encode(sub.getKey('p256dh')));
@@ -274,14 +286,14 @@ function register() {
             });
         })
     .catch(function(err) {
-        if (err.name == "SecurityError") {
+        if (err.name == "SecurityError" || err.name == "NotSupportedError") {
             show_err("Could not start.<br>This page requires a secure " +
                      "server. (e.g. one that can serve https:// pages). " +
                      "<br>The page can also be served from `localhost'.");
             return
         }
         console.error("Registration Error:", err);
-        msg = "Could not start.<br> "
+        let msg = "Could not start.<br> ";
         show_err(msg);
     });
 };
@@ -293,7 +305,7 @@ function getSubscription() {
     */
     return navigator.serviceWorker.ready
         .then(function(reg) {
-            sub = reg.pushManager.getSubscription();
+            let sub = reg.pushManager.getSubscription();
             if (sub) {
                 return sub;
             }
