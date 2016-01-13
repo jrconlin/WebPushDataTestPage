@@ -439,8 +439,8 @@ document.getElementById('newSalt').onclick = function(event) {
 }
 
 navigator.serviceWorker.addEventListener('message', function(event) {
+    console.debug('Service Worker sent:', JSON.stringify(event.data));
     if (event.data.type == 'content') {
-        console.debug('Service Worker sent:', event.data.content);
         // Compare what we got with the source to make sure that things worked ok.
         let source = document.getElementsByName("data")[0].value;
         show_ok(source == event.data.content);
