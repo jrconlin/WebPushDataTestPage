@@ -31,9 +31,9 @@ self.addEventListener('push', function(event)  {
               console.debug("Service worker found clients",
                     JSON.stringify(clients));
              clientList.forEach(client => {
-                 sent = true;
                  console.debug("Service worker sending to client...", client);
-                 client.postMessage(content);
+                 sent = true;
+                 client.postMessage({'type':'content','content':content});
              });
              if (sent == false) {
                  throw new Error("No valid client to send to.");
@@ -58,6 +58,26 @@ self.addEventListener('pushsubscriptionchange', function(event) {
     // The Push subscription ID has changed. The App should send this
     // information back to the App Server.
     console.log("sw Push Subscription Change", event);
+    event.waitUntil(
+        self.clients.matchAll()
+           .then(clientList => {
+              let sent = false;
+              console.debug("Service worker found clients",
+                    JSON.stringify(clients));
+             clientList.forEach(client => {
+                 console.debug("Service worker sending to client...", client);
+                 sent = true;
+                 client.postMessage({'type':'update'});
+             });
+             if (sent == false) {
+                 throw new Error("No valid client to send to.");
+             }
+           })
+           .catch(err => {
+              console.error("Service worker couldn't send message: ", err);
+           })
+        );
+    
 });
 
 self.addEventListener('registration', function(event){
