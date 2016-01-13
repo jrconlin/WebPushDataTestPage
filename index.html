@@ -350,9 +350,10 @@ function go(remoteKey) {
                 for (let k in d.body){
                     let ik = parseInt(k);
                     let ij = parseInt(d.body[k]);
-                    sbody += "\\x" + (ij).toString(16);
+                    let cj = ("00" + ij.toString(16)).slice(-2, 4);
+                    sbody += "\\x" + cj;
                     cbody += String.fromCodePoint(ij);
-                    ebody += (ij).toString(16);
+                    ebody += cj;
                     if ((ik + 1) % 2 == 0) {
                         ebody += " ";
                     }
