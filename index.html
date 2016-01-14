@@ -347,12 +347,13 @@ function go(remoteKey) {
                 let sbody = "";
                 let ebody = "";
                 let cbody = "";
-                for (let k in d.body){
+                for (let k in d.payload){
                     let ik = parseInt(k);
-                    let ij = parseInt(d.body[k]);
-                    sbody += "\\x" + (ij).toString(16);
+                    let ij = parseInt(d.payload[k]);
+                    let cj = ("00" + ij.toString(16)).slice(-2, 4);
+                    sbody += "\\x" + cj;
                     cbody += String.fromCodePoint(ij);
-                    ebody += (ij).toString(16);
+                    ebody += cj;
                     if ((ik + 1) % 2 == 0) {
                         ebody += " ";
                     }
@@ -399,7 +400,7 @@ getSubscription()
             console.error('Got empty subscription info block. Aborting.');
             let err = new Error();
             err.name = 'EmptySub';
-            err.message = 'An empty Subscription object was returned.';
+            err.message = 'An empty Subscription object was returned. Try refreshing.';
             throw err;
         }
         return sub;
@@ -439,10 +440,12 @@ document.getElementById('newSalt').onclick = function(event) {
 }
 
 navigator.serviceWorker.addEventListener('message', function(event) {
-    console.debug('Service Worker sent:', event.data);
-    // Compare what we got with the source to make sure that things worked ok.
-    let source = document.getElementsByName("data")[0].value;
-    show_ok(source == event.data);
+    console.debug('Service Worker sent:', JSON.stringify(event.data));
+    if (event.data.type == 'content') {
+        // Compare what we got with the source to make sure that things worked ok.
+        let source = document.getElementsByName("data")[0].value;
+        show_ok(source == event.data.content);
+    }
 });
 
   </script>
