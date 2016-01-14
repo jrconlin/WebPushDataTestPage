@@ -285,18 +285,23 @@
         for (let k in pheaders) {
             headers.append(k, pheaders[k]);
         }
-        var options = {
+        console.debug('payload', results.payload);
+        let endpoint = subscription.endpoint;
+        let body = "";
+        results.payload.forEach(x=>{
+            body+=String.fromCharCode(x);
+        });
+        let options = {
             method: 'POST',
-            headers: pheaders,
-            body: results.payload
+            headers: headers,
+            body: body,
         };
         // Note, fetch doesn't always seem to want to send the Headers.
         // Chances are VERY Good that if this returns an error, the headers
         // were not set. You can check the Network debug panel to see if
         // the request included the headers.
-        let endpoint = subscription.endpoint;
         console.debug("Fetching:", endpoint, options);
-        console.debug("Encryption-Key header", headers.get("encryption-key"))
+        console.debug("Encryption-Key header", headers.get("encryption-key"));
         fetch(endpoint, options)
             .then(response => {
                 if (! response.ok) {
@@ -310,6 +315,9 @@
                     throw new Error('Unable to deliver message: ',
                                     JSON.stringify(response));
               }
+              else {
+                show_ok(true);
+              }
             })
             .catch(err =>{
                  console.error("Send Failed: ", err);
@@ -322,6 +330,7 @@
         // include the headers here because sometimes you can't extract
         // them from a used Headers object.
         options.pheaders = pheaders;
+        options.payload = results.payload;
         return options;
       })
       .catch(err => console.error("Unknown error:", err));
