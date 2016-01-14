@@ -347,9 +347,9 @@ function go(remoteKey) {
                 let sbody = "";
                 let ebody = "";
                 let cbody = "";
-                for (let k in d.body){
+                for (let k in d.payload){
                     let ik = parseInt(k);
-                    let ij = parseInt(d.body[k]);
+                    let ij = parseInt(d.payload[k]);
                     let cj = ("00" + ij.toString(16)).slice(-2, 4);
                     sbody += "\\x" + cj;
                     cbody += String.fromCodePoint(ij);
