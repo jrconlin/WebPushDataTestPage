@@ -211,7 +211,7 @@ function show_ok(state) {
                 e[i].classList.add("hidden");
                 }
         }
-        show_err("");
+        show_err('');
     } else {
         for (let i=0;i<o.length;i++) {
             if (!o[i].classList.contains("hidden")) {
@@ -228,8 +228,8 @@ function show_ok(state) {
 
 function show_err(errMsg) {
     let err = document.getElementById("errMsg");
-    if (errMsg == "") {
-        err.innerHTML="";
+    if (errMsg == '') {
+        err.innerHTML='';
         err.classList.add("hidden");
         return;
     }
@@ -339,19 +339,19 @@ function go(remoteKey) {
                 // Populate the extra fields
                 output('osalt', base64url.encode(d.salt));
                 output('odh', base64url.encode(d.dh));
-                let rawStr = "";
-                let outStr = "";
+                let rawStr = '';
+                let outStr = '';
                 // Construct the curl. Remember, this needs to
                 // write a binary file first, then have curl read that file.
                 // This is because putting the data "inline" can fail.
-                let sbody = "";
-                let ebody = "";
-                let cbody = "";
+                let sbody = '';
+                let ebody = '';
+                let cbody = '';
                 for (let k in d.payload){
                     let ik = parseInt(k);
                     let ij = parseInt(d.payload[k]);
                     let cj = ("00" + ij.toString(16)).slice(-2, 4);
-                    sbody += "\\x" + cj;
+                    sbody += `\\x${cj}`;
                     cbody += String.fromCodePoint(ij);
                     ebody += cj;
                     if ((ik + 1) % 2 == 0) {
@@ -365,8 +365,7 @@ function go(remoteKey) {
                 // dump the raw curl to console.log. This is useful for
                 // folks doing device work.
                 rawStr = outStr;
-                rawStr += 'curl -v -X ' + d.method +
-                    ' ' + d.endpoint + ' ';
+                rawStr += `curl -v -X ${d.method} ${d.endpoint} `;
                 rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
                     base64url.encode(d.dh) + '"';
                 rawStr += ' -H "encryption: keyid=p256dh;salt=' +
@@ -375,12 +374,12 @@ function go(remoteKey) {
                 rawStr += ' --data-binary @encrypted.data';
                 console.log(rawStr);
                 // outStr is the styled version, which is easier for humans
-                outStr += "\ncurl -v -X " + d.method +
-                    ' <span class="endpoint">' + d.endpoint + '</span> ';
+                outStr += `\ncurl -v -X ${d.method} ` +
+                    ` <span class="endpoint">${d.endpoint}</span> `;
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
-                    'class="dhKey">' + base64url.encode(d.dh) + '</span>"';
+                    `class="dhKey">${base64url.encode(d.dh)}</span>"`;
                 outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
-                    'class="salt">' + base64url.encode(d.salt) + '</span>"';
+                    `class="salt">${base64url.encode(d.salt)}</span>"`;
                 outStr += ' -H "content-encoding: aesgcm128"';
                 outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
