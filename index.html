@@ -89,7 +89,11 @@
 <div class="static">
     <h2>Per request content</h2>
     <p>These items (plus the <span class="salt">Salt</span>) are unique per
-    encryption, and usually generated "on the fly" by the various algorythms.</p>
+    encryption, and usually generated "on the fly" by the various algorithms.
+    Key negotiation requires the generation of a <b>Local Key</b>.
+    The <b>Local Key</b> is an arbitrary key pair made for this specific
+    exchange and used to derive bits from the <b>p256dh</b> key.
+    </p>
     <div id="localKeyPri">
         <div class="title">Local Key (private):</div>
         <div class="description">The private portion of the Local Key.
@@ -99,15 +103,15 @@
     </div>
     <div id="localKeyPub">
         <div class="title">Local Key (public):</div>
-        <div class="description">Negotiation requires a locally generated
-        key pair. This key is temporary, but the public key needs to be
+        <div class="description">This key is temporary, but the public key needs to be
         sent as the <span class="def">Encryption Key</span></div>
         <div class="value"></div>
     </div>
     <div id="dhKey">
         <div class="title">Local Key (public, raw):</div>
-        <div class="description">This is the same local public key, only formatted in "raw" form. This is the byte array that is used for deriving
-            the <span class="nonce">nonce</span></div>
+        <div class="description">This is the same local public key,
+            only formatted in "raw" form. This is the byte array that
+            is used for deriving the <span class="nonce">nonce</span></div>
         <div class="value dhKey"></div>
     </div>
 </div>
