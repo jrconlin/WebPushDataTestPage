@@ -318,10 +318,9 @@
                     }
                     throw new Error('Unable to deliver message: ',
                                     JSON.stringify(response));
-              }
-              else {
-                show_ok(true);
-              }
+                } else {
+                    console.info("Message sent", response.status)
+                }
             })
             .catch(err =>{
                  console.error("Send Failed: ", err);
