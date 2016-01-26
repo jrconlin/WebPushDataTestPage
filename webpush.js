@@ -288,14 +288,10 @@
         }
         console.debug('payload', results.payload);
         let endpoint = subscription.endpoint;
-        let body = "";
-        results.payload.forEach(x=>{
-            body+=String.fromCharCode(x);
-        });
         let options = {
             method: 'POST',
             headers: headers,
-            body: body,
+            body: results.payload,
             cache: "no-cache",
             referrer: "no-referrer",
         };
