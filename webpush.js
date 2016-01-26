@@ -213,11 +213,11 @@
                    return edata;
           }));
     }).then(data=> {
-        // Turn the object
+        // Turn the object into a single array
         return bsConcat(data);
     })
     .catch(
-            x => console.error(x)
+        x => console.error(x)
      );
   }
 

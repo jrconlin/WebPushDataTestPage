@@ -102,25 +102,3 @@ self.addEventListener('activate', function(event){
     console.log("sw Activated: ", JSON.stringify(event));
     navigator.serviceWorker
 });
-
-/*
-  var title = 'Yay a message.';
-  var body = 'Subscription has changed.';
-  var icon = 'push-icon.png';
-  var tag = 'push';
-
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body: body,
-      icon: icon,
-      tag: tag
-    })
-  );
-
-  port.postMessage('Subscription has changed.');
-});
-
-self.onmessage = function(e) {
-  port = e.ports[0];
-}
-*/

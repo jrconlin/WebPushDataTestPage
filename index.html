@@ -8,7 +8,7 @@
   </head>
   <body>
   <h1>Web Push Data Encryption Test Page</h1>
-    <div class="errmsg hidden"></div>
+    <div class="errMsg hidden"></div>
     <div class="intro">
     <h2>Introduction</h2>
     <p>The <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API">Push APIs</a>
@@ -29,7 +29,8 @@
     Web Debugging Console (Ctrl+Shift+K on Firefox) and note the messages
     being generated in the console log.</p>
     <p>If you've not already done so, I strongly recommend you consult
-    <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Using_the_Push_API">Using the Push API</a> on the Mozilla Developer Network.
+    <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Using_the_Push_API">Using
+    the Push API</a> on the Mozilla Developer Network.
     This will help explain what push notifications are and how to use a simple
     version that does not contain data.</p>
     <p>This page will presume you're familiar with using Push notifications
@@ -44,7 +45,7 @@
     </p>
     </div>
     <div class="fromBrowser">
-    <h2>From the browser:</h2>
+    <h2>1. Get the Subscription:</h2>
     <p>These elements are provided to the WebApp from the
        <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
 
@@ -58,7 +59,8 @@
         the URI where you
         should POST the encrypted message content. To make things easier,
         the page will fetch one for itself. Feel free to replace this with
-        a different endpoint if you wish and press the "Send Data" button below.
+        a different endpoint if you wish and press the "Send Data" button below
+        to try it out.
     </div>
     <textarea name="endpoint" value="http://example.com/" class="value endpoint"></textarea>
     </div>
@@ -71,7 +73,7 @@
     </div>
     </div>
     <div class="inputs">
-    <h2>Per Request Inputs</h2>
+    <h2>2. Generate the Content</h2>
     <p>These are normally the things you enter per encryption request.</p>
     <div id="salt">
     <div class="title">Salt:</div>
@@ -90,19 +92,34 @@
     Just be sure that the service worker 'push' event handler knows how to read it.</div>
     <textarea name="data">This is test data.
 </textarea>
-    <div class="data_ok hidden">All good! The service worker managed to get and understand the data.</div>
-    <div class="errmsg hidden">No good. There was a problem with the service worker
+    <div class="data_ok hidden">All good! The service worker managed to get 
+        and understand the data.</div>
+    <div class="errMsg hidden">No good. There was a problem with the service worker
         handling the data.<br>
         Check the console and retry to see if it's still a problem.
-        Also try Copying the "<a href="#curl">curl</a>" buffer below into a command line. If things work, this text
+        Also try Copying the "<a href="#curl">curl</a>" buffer below into a 
+        command line. If things work, this text
         will turn green.</div>
     </div>
     <div id="ctrl">
-    <button id="refresh" >Send Data</button>
+    <p>Let's try sending the data now. This will populate the following sections with info
+    you'll need if you want to roll your own library, or check a library you have.</P>
+    <button id="refresh" disabled>Send Data</button>
+    </div>
+    <div id="success" class="hidden">
+    <p> If all goes well, you should see something like the following pop up on your screen.
+    <div id="fakeNotif">
+    <div class="close">X</div>
+    <div class="fntitle">Got message</div>
+    <img src="icon.png">
+    <div class="msg"></div>
+    <div class="via">via YourSite.foo</div>
+    </div>
+    </p>
     </div>
 </div>
 <div class="static">
-    <h2>Per request content</h2>
+    <h2>3. Generate the Local Key:</h2>
     <p>These items (plus the <span class="salt">Salt</span>) are unique per
     encryption, and usually generated "on the fly" by the various algorithms.
     Key negotiation requires the generation of a <b>Local Key</b>.
@@ -131,7 +148,7 @@
     </div>
 </div>
 <div class="encrypt">
-    <h2>Encryptor content</h2>
+    <h2>4. Encrypt and Send the Message:</h2>
     <p>These items are the various intermediary and final elements used to
     generate the encryption key.</p>
     <div id="sharedKey">
@@ -163,7 +180,7 @@
         </div>
     </div>
 <div class="out">
-    <h2>Outputs</h2>
+    <h2>The Important Bits:</h2>
     <p>These are the outputs. You can cut and paste the <b>Curl</b>
     content and watch the Web Console to see the message be received and
     handled by the Service Worker.</p>
@@ -178,7 +195,7 @@
         <div class="value wrap"></div>
         <div class="data_ok hidden">All good! The service worker
             managed to get and understand the data.</div>
-        <div class="errmsg hidden">No good. There was a problem
+        <div class="errMsg hidden">No good. There was a problem
             with the service worker handling the data.<br>
         Check the console and retry to see if it's still a problem.
         </div>
@@ -202,7 +219,7 @@
         on Linux systems) to verify that the data is correct.
         </div>
         <div class="value"></div>
-        <div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div>
+        <!--div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div -->
     </div>
 </div>
 <div class="footer">
@@ -217,31 +234,35 @@
 'use strict';
 
 function show_ok(state) {
-    let o = document.getElementsByClassName("data_ok");
-    for(let i=0; i<o.length; i++) {
-        if (state) {
-            o[i].classList.remove("hidden")
-        } else {
-            o[i].classList.add("hidden")
-        }
-
+    let o = document.getElementById("success");
+    o.getElementsByClassName("msg")[0].innerText = 
+        document.getElementsByName("data")[0].value;
+    o.getElementsByClassName("via")[0].innerText = 
+        `via ${document.location.host}`;
+    if (state) {
+        o.classList.remove("hidden")
+    } else {
+        o.classList.add("hidden")
     }
 }
 
-function notify (title, body) {
-    let notif = new Notification(title, {body: body});
+function notify(title, body) {
+    let notif = new Notification(title, 
+        {body: body,
+         icon: "icon.png",
+        });
 }
 
 function show_err(errMsg) {
     show_ok(false);
-    let err = document.getElementByClassName("errMsg");
+    let err = document.getElementsByClassName("errMsg");
     for (let i=0; i<err.length; i++) {
         if (errMsg == false) {
-            err.classList.add("hidden");
-            err.innerHTML='';
+            err[i].classList.add("hidden");
+            err[i].innerHTML='';
         } else {
-            err.innerHTML = errMsg;
-            err.classList.remove("hidden");
+            err[i].innerHTML = errMsg;
+            err[i].classList.remove("hidden");
         }
     }
     return;
@@ -263,18 +284,18 @@ function register() {
                 window.location.reload();
             })
             .catch(function(err) {
+                if (err.name == "SecurityError" || err.name == "NotSupportedError") {
+                    show_err("Could not start.<br>This page requires a secure " +
+                             "server. (e.g. one that can serve https:// pages). " +
+                             "<br>The page can also be served from `localhost'.");
+                    return
+                }
                 console.error("Error", err);
             });
         }
         return registration;
     })
     .catch(function(err) {
-        if (err.name == "SecurityError" || err.name == "NotSupportedError") {
-            show_err("Could not start.<br>This page requires a secure " +
-                     "server. (e.g. one that can serve https:// pages). " +
-                     "<br>The page can also be served from `localhost'.");
-            return
-        }
         console.error("Registration Error:", err);
         let msg = "Could not start.<br> ";
         show_err(msg);
@@ -299,12 +320,17 @@ function subscribe() {
 
             */
             console.debug("Registering...", registration);
+            // Get the subscription info. 
             registration.pushManager.subscribe({
+                // Set this to be "true" if you're only displaying
+                // the data to the user. Set it to "false" if you
+                // want to use this notification internally and not
+                // display a message.
                 userVisibleOnly: false,
             })
             .then(function(subscription_info) {
                 if (! subscription_info.endpoint) {
-                    console.error("Crap, subscription doesn't have an " +
+                    console.error("Subscription doesn't have an " +
                                   "endpoint. Aborting.");
                     err = new Error();
                     err.name = "NoEndpoint";
@@ -312,7 +338,7 @@ function subscribe() {
                     throw err;
                 }
                 if (! subscription_info.getKey) {
-                    console.error("Crap, subscription doesn't allow " +
+                    console.error("Subscription doesn't allow " +
                                   "data encryption. Aborting.");
                     err = new Error();
                     err.name = "NoData";
@@ -322,12 +348,17 @@ function subscribe() {
                 output('endpoint', subscription_info.endpoint);
                 output('remoteKey',
                     base64url.encode(subscription_info.getKey('p256dh')));
-                console.debug ("Auth key: ",
-                    base64url.encode(subscription_info.getKey('auth')));
                 output('salt',
                        base64url.encode(crypto.getRandomValues(
                                             new Uint8Array(16))));
+                let authKey = subscription_info.getKey('auth');
+                if (authKey) {
+                    console.debug ("Auth key: ",
+                        base64url.encode(subscription_info.getKey('auth')));
+                }
+                document.getElementById("refresh").disabled = false;
                 return subscription_info.endpoint;
+                
             })
             .catch(function(err) {
                 console.error("ERROR: ", err);
@@ -415,15 +446,18 @@ function go(remoteKey) {
                 output('odata', ebody);
                 var blob = new Blob([cbody],
                     {type: 'application/octet-binary'});
+                /*
                 document.getElementById('saveas').onclick = function(){
                     saveAs(blob, 'encrypted.data');
                 };
+                */
               });
 }
 
 
 document.getElementById('refresh').onclick = function(event) {
     go(document.getElementsByName('remoteKey')[0].value);
+    
 }
 
 document.getElementById('newSalt').onclick = function(event) {
