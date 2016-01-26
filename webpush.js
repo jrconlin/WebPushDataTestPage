@@ -213,11 +213,11 @@
                    return edata;
           }));
     }).then(data=> {
-        // Turn the object
+        // Turn the object into a single array
         return bsConcat(data);
     })
     .catch(
-            x => console.error(x)
+        x => console.error(x)
      );
   }
 
@@ -280,29 +280,29 @@
                          'keyid=p256dh;dh=' + base64url.encode(results.pubkey),
                         'encryption':
                          'keyid=p256dh;salt=' + base64url.encode(salt),
-                        'content-encoding': 'aesgcm128'};
+                        'content-encoding': 'aesgcm128',
+        };
         let headers = new Headers();
         for (let k in pheaders) {
             headers.append(k, pheaders[k]);
         }
         console.debug('payload', results.payload);
         let endpoint = subscription.endpoint;
-        let body = "";
-        results.payload.forEach(x=>{
-            body+=String.fromCharCode(x);
-        });
         let options = {
             method: 'POST',
             headers: headers,
-            body: body,
+            body: results.payload,
+            cache: "no-cache",
+            referrer: "no-referrer",
         };
         // Note, fetch doesn't always seem to want to send the Headers.
         // Chances are VERY Good that if this returns an error, the headers
         // were not set. You can check the Network debug panel to see if
         // the request included the headers.
         console.debug("Fetching:", endpoint, options);
-        console.debug("Encryption-Key header", headers.get("encryption-key"));
-        fetch(endpoint, options)
+        let req = new Request(endpoint, options);
+        console.debug("request:", req);
+        fetch(req)
             .then(response => {
                 if (! response.ok) {
                     if (response.status == 400) {
@@ -314,10 +314,9 @@
                     }
                     throw new Error('Unable to deliver message: ',
                                     JSON.stringify(response));
-              }
-              else {
-                show_ok(true);
-              }
+                } else {
+                    console.info("Message sent", response.status)
+                }
             })
             .catch(err =>{
                  console.error("Send Failed: ", err);

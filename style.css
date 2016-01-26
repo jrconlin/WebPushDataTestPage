@@ -1,6 +1,6 @@
 * {margin:0;padding:0;font:100% Arial;}
 body {margin:0 auto;max-width:60em;color:#333; background-color:#FeFeFe;}
-div {min-height:2em;width:100%;}
+div {min-height:2em;width:100%; margin-right:1em;}
 h1 {font-size:200%;font-weight:bold;}
 h2 {font-size:125%;text-indent:-3em;font-weight:bold;}
 input {width:80%;font-family:"courier new",courier,monospace;border:1px solid;}
@@ -10,20 +10,23 @@ code {font: 90% "courier new",courier, monospace;}
 .intro, .fromBrowser,.inputs,.static,.encrypt,.out{padding:0 0 0 4em;}
 .fromBrowser,.inputs,.static,.encrypt,.out{background-color:#EFF;border-width:2px 0;border-color:#2FF;border-style:solid;}
 .endpoint {color: #33F;}
-#errMsg {color:red;}
-.value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;}
+.errMsg {color:red;}
+.value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,250,250,50);padding:5px;}
 .dhKey {color:green;font-weight:bold;}
 .salt {color:#609;font-weight:bold;}
-.value {margin-bottom: 2em;white-space:pre-wrap;word-break:break-all;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;}
-.static .value {width:90%;}
 .title {text-indent:-3em;}
 .inputs {padding:0 0 0 4em;}
 .encrypt {text-background:#EFF;border:1px solid #CFF;}
-#curl .value{color: #333;background-color:#FEFEFE;}
-#odata .value{color: #333;background-color:#FEFEFE;}
 #curl .value .body {font:100% "courier new",courier,monospace;}
 .data_ok {color:green;}
 .data_err {color:red;}
 .hidden {display:none;}
+#fakeNotif {border:2px solid black; background-color:#EEE; width: 300px;min-height: 100px; position:relative;border-radius:5px; box-shadow:4px 4px 4px rgba(120,120,120,120);}
+#fakeNotif .close {position:absolute; top: 0; right:0; color: #888;  border-radius:5px; width:1em;margin:0;}
+#fakeNotif .fntitle {position:absolute; top: 0; left: .5em; font-weight:bold;}
+#fakeNotif img {position:absolute; top: 1.5em;left:.5em;}
+#fakeNotif .msg {position:absolute; top: 1.5em; left: 90px;}
+#fakeNotif .via {position:absolute; bottom:0; left: 90px;font-size:70%;color:#888;}
+
