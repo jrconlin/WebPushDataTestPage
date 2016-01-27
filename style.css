@@ -8,12 +8,12 @@ textarea {width:80%;height:12EX;font-family:"courier new",courier,monospace;bord
 p,.description {margin-bottom:.5em;color:#666;}
 code {font: 90% "courier new",courier, monospace;}
 .intro, .fromBrowser,.inputs,.static,.encrypt,.out{padding:0 0 0 4em;}
-.fromBrowser,.inputs,.static,.encrypt,.out{background-color:#EFF;border-width:2px 0;border-color:#2FF;border-style:solid;}
+.fromBrowser,.inputs,.static,.encrypt,.out{background-color:#EfEfEf;border-width:2px 0;border-color:#8f8f8f;border-style:solid;}
 .endpoint {color: #33F;}
 .errMsg {color:red;}
-.value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,250,250,50);padding:5px;}
-.dhKey {color:green;font-weight:bold;}
-.salt {color:#609;font-weight:bold;}
+.value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,200,200,50);padding:5px;}
+.dhKey {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
+.salt {color:#008700;font-weight:bold;text-decoration:underline wavy #CCC;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;}
 .title {text-indent:-3em;}
