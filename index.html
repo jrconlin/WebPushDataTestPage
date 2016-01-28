@@ -158,13 +158,18 @@
     </div>
         <div id="gcmB">
             <div class="title">Encryption Key</div>
-            <div class="description">HKDF generated Bits derived from the shared key material.</div>
+            <div class="description">HKDF generated bits derived from the shared key 
+            material, which is a <acronym title='The string "Content-Encoding: aesgcm128"'>
+            static string</acronym> run through the KDF wich has been seeded from the 
+            <span class="salt">salt</span> and the <span class="dhKey"> localKey</span>.
+            </div>
             <div class="value"></div>
         </div>
         <div id="nonce">
             <div class="title">Derived Nonce:</div>
-            <div class="description">The "nonce" here is derived from the static
-               string, run through the KDF which has been seeded from the
+            <div class="description">The "nonce" here is derived from a <acronym 
+                title='The string used is "Content-Encoding: nonce"'>static
+               string</acronym>, run through the KDF which has been seeded from the
                <span class="salt">salt</span>
                 and the <span class="dhKey"> localKey</span>.</div>
             <div class="value nonce"></div>
@@ -233,12 +238,13 @@
   <script>
 'use strict';
 
-function show_ok(state) {
+function show_ok(state, msg) {
     let o = document.getElementById("success");
-    o.getElementsByClassName("msg")[0].innerText = 
-        document.getElementsByName("data")[0].value;
-    o.getElementsByClassName("via")[0].innerText = 
-        `via ${document.location.host}`;
+    if (msg == false) {
+        msg = document.getElementsByName("data")[0].value;
+    }
+    o.getElementsByClassName("msg")[0].textContent = msg;
+    o.getElementsByClassName("via")[0].textContent = `via ${document.location.host}`;
     if (state) {
         o.classList.remove("hidden")
     } else {
@@ -332,7 +338,7 @@ function subscribe() {
                 if (! subscription_info.endpoint) {
                     console.error("Subscription doesn't have an " +
                                   "endpoint. Aborting.");
-                    err = new Error();
+                    let err = new Error();
                     err.name = "NoEndpoint";
                     err.message = "Subscription does not have an endpoint";
                     throw err;
@@ -340,7 +346,7 @@ function subscribe() {
                 if (! subscription_info.getKey) {
                     console.error("Subscription doesn't allow " +
                                   "data encryption. Aborting.");
-                    err = new Error();
+                    let err = new Error();
                     err.name = "NoData";
                     err.message = "Subscription does not allow data";
                     throw err;
@@ -351,10 +357,20 @@ function subscribe() {
                 output('salt',
                        base64url.encode(crypto.getRandomValues(
                                             new Uint8Array(16))));
-                let authKey = subscription_info.getKey('auth');
-                if (authKey) {
-                    console.debug ("Auth key: ",
-                        base64url.encode(subscription_info.getKey('auth')));
+                try {
+                    let authKey = subscription_info.getKey('auth');
+                    if (authKey) {
+                        console.debug ("Auth key: ",
+                            base64url.encode(subscription_info.getKey('auth')));
+                    }
+                } catch (e) {
+                    let err = new Error();
+                    // This page follows the latest specification.
+                    // It's been tested against Firefox 45+
+                    err.name = "OldVersion";
+                    err.message = "This browser version doesn't use the latest "+
+                        "encryption model, and therefore won't work.";
+                    //throw err;
                 }
                 document.getElementById("refresh").disabled = false;
                 return subscription_info.endpoint;
@@ -362,6 +378,7 @@ function subscribe() {
             })
             .catch(function(err) {
                 console.error("ERROR: ", err);
+                show_err(err.message);
             });
         })
     .catch(function(err) {
@@ -471,7 +488,7 @@ navigator.serviceWorker.addEventListener('message', function(event) {
         // that things worked ok.
         let source = document.getElementsByName("data")[0].value;
         notify("Got message", event.data.content);
-        show_ok(source == event.data.content);
+        show_ok(true, event.data.content);
     }
 });
 

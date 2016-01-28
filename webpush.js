@@ -195,9 +195,6 @@
               .map((slice, index) => {
                    // determine the "padded" data block
                    var padded = bsConcat([new Uint8Array([0]), slice]);
-                   //console.debug("slice   :", base64url.encode(slice));
-                   //console.debug("padded  :", base64url.encode(padded));
-                   //console.debug("original:", new TextDecoder('utf-8').decode(padded));
                   // Generate the Initialization Vector (iv) for this block
                   // based on the previously generated nonce and the offset
                   // of the block.
@@ -307,8 +304,8 @@
                 if (! response.ok) {
                     if (response.status == 400) {
                         show_err("Server returned 400. Probably " +
-                        "missing headers.<br>Try refreshing to see if " +
-                        "the browser's fetch() call will send them.");
+                        "missing headers.<br>If refreshing doesn't work " +
+                        "the 'curl' call below should still work fine.");
                         show_ok(false);
                         throw new Error("Server Returned 400");
                     }
