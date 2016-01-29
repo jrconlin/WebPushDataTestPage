@@ -273,61 +273,63 @@
         });
       })
       .then(results => {
-        var pheaders = {'encryption-key':
-                         'keyid=p256dh;dh=' + base64url.encode(results.pubkey),
-                        'encryption':
-                         'keyid=p256dh;salt=' + base64url.encode(salt),
-                        'content-encoding': 'aesgcm128',
-        };
-        let headers = new Headers();
-        for (let k in pheaders) {
-            headers.append(k, pheaders[k]);
-        }
-        console.debug('payload', results.payload);
-        let endpoint = subscription.endpoint;
-        let options = {
-            method: 'POST',
-            headers: headers,
-            body: results.payload,
-            cache: "no-cache",
-            referrer: "no-referrer",
-        };
-        // Note, fetch doesn't always seem to want to send the Headers.
-        // Chances are VERY Good that if this returns an error, the headers
-        // were not set. You can check the Network debug panel to see if
-        // the request included the headers.
-        console.debug("Fetching:", endpoint, options);
-        let req = new Request(endpoint, options);
-        console.debug("request:", req);
-        fetch(req)
-            .then(response => {
-                if (! response.ok) {
-                    if (response.status == 400) {
-                        show_err("Server returned 400. Probably " +
-                        "missing headers.<br>If refreshing doesn't work " +
-                        "the 'curl' call below should still work fine.");
-                        show_ok(false);
-                        throw new Error("Server Returned 400");
-                    }
-                    throw new Error('Unable to deliver message: ',
-                                    JSON.stringify(response));
-                } else {
-                    console.info("Message sent", response.status)
-                }
-            })
-            .catch(err =>{
-                 console.error("Send Failed: ", err);
-                 show_ok(false);
-            });
-        // uncomment if you're planning on returning the object for display
-        options.salt = salt;
-        options.dh = results.pubkey;
-        options.endpoint = subscription.endpoint;
-        // include the headers here because sometimes you can't extract
-        // them from a used Headers object.
-        options.pheaders = pheaders;
-        options.payload = results.payload;
-        return options;
+          let options = {}
+          let headers = new Headers();
+          headers.append('encryption-key',
+                'keyid=p256dh;dh=' + base64url.encode(results.pubkey));
+          headers.append('encryption',
+                'keyid=p256dh;salt=' + base64url.encode(salt));
+          headers.append('content-encoding', 'aesgcm128')
+          options.salt = salt;
+          options.dh = results.pubkey;
+          options.endpoint = subscription.endpoint;
+          // include the headers here because sometimes you can't extract
+          // them from a used Headers object.
+          options.headers = headers;
+          options.payload = results.payload;
+          options.method = 'POST';
+          return options;
       })
       .catch(err => console.error("Unknown error:", err));
   }
+
+function send(options) {
+    console.debug('payload', options.payload);
+    let endpoint = options.endpoint;
+    let send_options = {
+        method: options.method,
+        headers: options.headers,
+        body: options.payload,
+        cache: "no-cache",
+        referrer: "no-referrer",
+    };
+    // Note, fetch doesn't always seem to want to send the Headers.
+    // Chances are VERY Good that if this returns an error, the headers
+    // were not set. You can check the Network debug panel to see if
+    // the request included the headers.
+    console.debug("Fetching:", options.endpoint, send_options);
+    let req = new Request(options.endpoint, send_options);
+    console.debug("request:", req);
+    return fetch(req)
+        .then(response => {
+            if (! response.ok) {
+                if (response.status == 400) {
+                    show_err("Server returned 400. Probably " +
+                    "missing headers.<br>If refreshing doesn't work " +
+                    "the 'curl' call below should still work fine.");
+                    show_ok(false);
+                    throw new Error("Server Returned 400");
+                }
+                throw new Error('Unable to deliver message: ',
+                                JSON.stringify(response));
+            } else {
+                console.info("Message sent", response.status)
+            }
+            return true;
+        })
+        .catch(err =>{
+             console.error("Send Failed: ", err);
+             show_ok(false);
+             return false;
+        });
+}

@@ -38,13 +38,13 @@
     note that since this feature is currently experimental, there is very
     limited library support. This page exists to transparently show the
     keys and values used to successfully encrypt data for delivery.</p>
-    <p id="regSec" class="hidden">
+    <div id="regSec" class="ctrl hidden">
     First, let's register the service worker, since it's
     not already present.<br>
     <button id="regButton">Register the Service Worker...</button>
-    </p>
     </div>
-    <div class="fromBrowser">
+    </div>
+    <div class="section">
     <h2>1. Get the Subscription:</h2>
     <p>These elements are provided to the WebApp from the
        <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
@@ -52,7 +52,9 @@
     call. These values should be relayed directly to your back-end App
     Server via your app. Never send this information through the Push
     Servers!</p>
-    <p><button id="subscribe" disabled>Get subscription info</button>
+    <div class="ctrl">
+    <button id="subscribe" disabled>Get subscription info</button>
+    </div>
     <div id="endpoint">
     <div class="title">endpoint</div>
     <div class="description">The <code>subscription.endpoint</code> is
@@ -72,7 +74,7 @@
     <textarea class="value" name="remoteKey" ></textarea>
     </div>
     </div>
-    <div class="inputs">
+    <div class="section">
     <h2>2. Generate the Content</h2>
     <p>These are normally the things you enter per encryption request.</p>
     <div id="salt">
@@ -101,24 +103,11 @@
         command line. If things work, this text
         will turn green.</div>
     </div>
-    <div id="ctrl">
-    <p>Let's try sending the data now. This will populate the following sections with info
-    you'll need if you want to roll your own library, or check a library you have.</P>
-    <button id="refresh" disabled>Send Data</button>
-    </div>
-    <div id="success" class="hidden">
-    <p> If all goes well, you should see something like the following pop up on your screen.
-    <div id="fakeNotif">
-    <div class="close">X</div>
-    <div class="fntitle">Got message</div>
-    <img src="icon.png">
-    <div class="msg"></div>
-    <div class="via">via YourSite.foo</div>
-    </div>
-    </p>
+    <div class="ctrl">
+    Ok, we're ready to <button id="encrypt" disabled>Encrypt the data</button>
     </div>
 </div>
-<div class="static">
+<div class="section">
     <h2>3. Generate the Local Key:</h2>
     <p>These items (plus the <span class="salt">Salt</span>) are unique per
     encryption, and usually generated "on the fly" by the various algorithms.
@@ -147,8 +136,8 @@
         <div class="value dhKey"></div>
     </div>
 </div>
-<div class="encrypt">
-    <h2>4. Encrypt and Send the Message:</h2>
+<div class="section">
+    <h2>4. Encrypt the Message:</h2>
     <p>These items are the various intermediary and final elements used to
     generate the encryption key.</p>
     <div id="sharedKey">
@@ -184,8 +173,8 @@
             <div class="value"></div>
         </div>
     </div>
-<div class="out">
-    <h2>The Important Bits:</h2>
+<div class="section">
+    <h2>5. Send the Message:</h2>
     <p>These are the outputs. You can cut and paste the <b>Curl</b>
     content and watch the Web Console to see the message be received and
     handled by the Service Worker.</p>
@@ -198,6 +187,20 @@
         curl. Transcoding the data to base64 or some other encoding mechanism
         will not work.</div>
         <div class="value wrap"></div>
+        <p>If you don't have curl, or don't feel like cutting and pasting, 
+        you can <button id="refresh" disabled>Send the Data</button> and this
+        page will do it for you.</p>
+    <div id="success" class="hidden">
+    <p> If all goes well, you should see something like the following pop up on your screen.
+    <div id="fakeNotif">
+    <div class="close">X</div>
+    <div class="fntitle">Got message</div>
+    <img src="icon.png">
+    <div class="msg"></div>
+    <div class="via">via YourSite.foo</div>
+    </div>
+    </p>
+    </div>
         <div class="data_ok hidden">All good! The service worker
             managed to get and understand the data.</div>
         <div class="errMsg hidden">No good. There was a problem
@@ -372,7 +375,7 @@ function subscribe() {
                         "encryption model, and therefore won't work.";
                     //throw err;
                 }
-                document.getElementById("refresh").disabled = false;
+                document.getElementById("encrypt").disabled = false;
                 return subscription_info.endpoint;
                 
             })
@@ -395,12 +398,12 @@ function subscribe() {
 };
 
 
-function go(remoteKey) {
+function encr(remoteKey) {
     /* Fetch & fill various fields, attempt to create a message and send
        it to yourself.
     */
     var endpoint = document.getElementsByName("endpoint")[0].value;
-    var salt = document.getElementsByName("salt")[0].value;
+    var salt = base64url.decode(document.getElementsByName("salt")[0].value);
     if (!salt) {
         return;
     }
@@ -408,14 +411,16 @@ function go(remoteKey) {
         remoteKey = document.getElementsByName("remoteKey")[0].value;
     }
     var data = document.getElementsByName("data")[0].value;
+    let rKey = base64url.decode(remoteKey);
+    
     var encr = webpush({endpoint: endpoint,
-                        p256dh: base64url.decode(remoteKey)},
+                        p256dh: rKey},
                         data,
-                        base64url.decode(salt))
-        .then(d => {
+                        salt)
+        .then(options => {
                 // Populate the extra fields
-                output('osalt', base64url.encode(d.salt));
-                output('odh', base64url.encode(d.dh));
+                output('osalt', base64url.encode(options.salt));
+                output('odh', base64url.encode(options.dh));
                 let rawStr = '';
                 let outStr = '';
                 // Construct the curl. Remember, this needs to
@@ -424,9 +429,9 @@ function go(remoteKey) {
                 let sbody = '';
                 let ebody = '';
                 let cbody = '';
-                for (let k in d.payload){
+                for (let k in options.payload){
                     let ik = parseInt(k);
-                    let ij = parseInt(d.payload[k]);
+                    let ij = parseInt(options.payload[k]);
                     let cj = ("00" + ij.toString(16)).slice(-2, 4);
                     sbody += `\\x${cj}`;
                     cbody += String.fromCodePoint(ij);
@@ -442,38 +447,43 @@ function go(remoteKey) {
                 // dump the raw curl to console.log. This is useful for
                 // folks doing device work.
                 rawStr = outStr;
-                rawStr += `curl -v -X ${d.method} ${d.endpoint} `;
+                rawStr += `curl -v -X ${options.method} ${options.endpoint} `;
                 rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
-                    base64url.encode(d.dh) + '"';
+                    base64url.encode(options.dh) + '"';
                 rawStr += ' -H "encryption: keyid=p256dh;salt=' +
-                    base64url.encode(d.salt) + '"';
+                    base64url.encode(options.salt) + '"';
                 rawStr += ' -H "content-encoding: aesgcm128"';
                 rawStr += ' --data-binary @encrypted.data';
                 console.log(rawStr);
                 // outStr is the styled version, which is easier for humans
-                outStr += `\ncurl -v -X ${d.method} ` +
-                    ` <span class="endpoint">${d.endpoint}</span> `;
+                outStr += `\ncurl -v -X ${options.method} ` +
+                    ` <span class="endpoint">${options.endpoint}</span> `;
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
-                    `class="dhKey">${base64url.encode(d.dh)}</span>"`;
+                    `class="dhKey">${base64url.encode(options.dh)}</span>"`;
                 outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
-                    `class="salt">${base64url.encode(d.salt)}</span>"`;
+                    `class="salt">${base64url.encode(options.salt)}</span>"`;
                 outStr += ' -H "content-encoding: aesgcm128"';
                 outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
                 output('odata', ebody);
-                var blob = new Blob([cbody],
-                    {type: 'application/octet-binary'});
-                /*
-                document.getElementById('saveas').onclick = function(){
-                    saveAs(blob, 'encrypted.data');
-                };
-                */
-              });
+                //var blob = new Blob([cbody],
+                //    {type: 'application/octet-binary'});
+                var send_options = options;
+                let refresh = document.getElementById('refresh');
+                refresh.onclick=function() {
+                    send(send_options);
+                }
+                refresh.disabled=false;
+                show_ok(true, false)
+              })
+        .catch(e => {
+            log.error("Error:", e);
+        });
 }
 
 
-document.getElementById('refresh').onclick = function(event) {
-    go(document.getElementsByName('remoteKey')[0].value);
+document.getElementById('encrypt').onclick = function(event) {
+    encr(document.getElementsByName('remoteKey')[0].value);
     
 }
 
