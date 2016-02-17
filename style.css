@@ -9,11 +9,13 @@ p,.description {margin-bottom:.5em;color:#666;}
 code {font: 90% "courier new",courier,monospace;}
 .intro,.section {padding:0 0 0 4em;}
 .ctrl {margin:.5em 0;font-weight:bold;font-size:120%;}
+.ctrl button {border:2px solid black;border-radius:5px;}
 .section{background-color:#EfEfEf;border-width:2px 0;border-color:#8f8f8f;border-style:solid;}
 .errMsg {color:red;}
 .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,200,200,50);padding:5px;}
 .endpoint {color:#33F;}
-.dhKey {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
+.local_key {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
+.remote_key {color:#005444;font-weight:bold;text-decoration:double-underline solid #CCC;}
 .salt {color:#008700;font-weight:bold;text-decoration:underline wavy #CCC;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;text-indent:-3em;}

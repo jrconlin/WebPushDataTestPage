@@ -71,7 +71,7 @@
     <div class="description">The "p256dh" key is the ECDH curve p256 Diffie Hellman key
         returned as part of the subscription. You use
         <code>subscription.getKey('p256dh')</code> to retrieve this value</div>
-    <textarea class="value" name="remoteKey" ></textarea>
+    <textarea class="value remote_key" name="remoteKey" ></textarea>
     </div>
     </div>
     <div class="section">
@@ -111,9 +111,9 @@
     <h2>3. Generate the Local Key:</h2>
     <p>These items (plus the <span class="salt">Salt</span>) are unique per
     encryption, and usually generated "on the fly" by the various algorithms.
-    Key negotiation requires the generation of a <b>Local Key</b>.
+    Key negotiation requires the generation of a <b class="local_key">Local Key</b>.
     The <b>Local Key</b> is an arbitrary key pair made for this specific
-    exchange and used to derive bits from the <b>p256dh</b> key.
+    exchange and used to derive bits from the <b class="remote_key">p256dh</b> key.
     </p>
     <div id="localKeyPri">
         <div class="title">Local Key (private):</div>
@@ -128,12 +128,12 @@
         sent as the <span class="def">Encryption Key</span></div>
         <div class="value"></div>
     </div>
-    <div id="dhKey">
+    <div id="local_key">
         <div class="title">Local Key (public, raw):</div>
-        <div class="description">This is the same local public key,
+        <div class="description">This is the same public <b class="local_key">local key</b>,
             only formatted in "raw" form. This is the byte array that
             is used for deriving the <span class="nonce">nonce</span></div>
-        <div class="value dhKey"></div>
+        <div class="value local_key"></div>
     </div>
 </div>
 <div class="section">
@@ -142,15 +142,15 @@
     generate the encryption key.</p>
     <div id="sharedKey">
         <div class="title">Shared Key:</div>
-        <div class="description">AES-GCM key material derived from the local key.</div>
+        <div class="description">AES-GCM key material derived from the private <b class="local_key">local key</b> and public <b class="remote_key">p256dh key</b>. This comes from a <code>WebCrypto.deriveBits</code> call in <code>webpush.js</code></div>
         <div class="value"></div>
     </div>
         <div id="gcmB">
             <div class="title">Encryption Key</div>
             <div class="description">HKDF generated bits derived from the shared key 
             material, which is a <acronym title='The string "Content-Encoding: aesgcm128"'>
-            static string</acronym> run through the KDF wich has been seeded from the 
-            <span class="salt">salt</span> and the <span class="dhKey"> localKey</span>.
+            static string</acronym> run through the KDF which has been seeded from the 
+            <span class="salt">salt</span> and the <span class="local_key"> localKey</span>.
             </div>
             <div class="value"></div>
         </div>
@@ -160,7 +160,7 @@
                 title='The string used is "Content-Encoding: nonce"'>static
                string</acronym>, run through the KDF which has been seeded from the
                <span class="salt">salt</span>
-                and the <span class="dhKey"> localKey</span>.</div>
+                and the <span class="local_key"> localKey</span>.</div>
             <div class="value nonce"></div>
         </div>
         <div id="iv">
@@ -217,7 +217,7 @@
         <div class="title">dh:</div>
         <div class="description">Diffie-Hellman key sent in the "Encryption-Key"
         header.</div>
-        <div class="value wrap dhKey"></div>
+        <div class="value wrap local_key"></div>
     </div>
     <div id="odata">
         <div class="title">data:</div>
@@ -459,10 +459,11 @@ function encr(remoteKey) {
                 outStr += `\ncurl -v -X ${options.method} ` +
                     ` <span class="endpoint">${options.endpoint}</span> `;
                 outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
-                    `class="dhKey">${base64url.encode(options.dh)}</span>"`;
+                    `class="local_key">${base64url.encode(options.dh)}</span>"`;
                 outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
                     `class="salt">${base64url.encode(options.salt)}</span>"`;
                 outStr += ' -H "content-encoding: aesgcm128"';
+                outStr += ' -H "TTL: 60"';
                 outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
                 output('odata', ebody);
