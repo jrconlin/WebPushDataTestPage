@@ -251,7 +251,7 @@
             .catch(x => console.error(x));
         webCrypto.exportKey('raw', localKey.publicKey)
           .then(key=>{
-              output('dhKey', base64url.encode(key));
+              output('local_key', base64url.encode(key));
           });
         // Dump the local private key
         webCrypto.exportKey('jwk', localKey.privateKey)
@@ -280,6 +280,7 @@
           headers.append('encryption',
                 'keyid=p256dh;salt=' + base64url.encode(salt));
           headers.append('content-encoding', 'aesgcm128')
+          headers.append('ttl', 60)
           options.salt = salt;
           options.dh = results.pubkey;
           options.endpoint = subscription.endpoint;
