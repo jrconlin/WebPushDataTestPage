@@ -93,12 +93,12 @@
     Just be sure that the service worker 'push' event handler knows how to read it.</div>
     <textarea name="data">This is test data.
 </textarea>
-    <div class="data_ok hidden">All good! The service worker managed to get 
+    <div class="data_ok hidden">All good! The service worker managed to get
         and understand the data.</div>
     <div class="errMsg hidden">No good. There was a problem with the service worker
         handling the data.<br>
         Check the console and retry to see if it's still a problem.
-        Also try Copying the "<a href="#curl">curl</a>" buffer below into a 
+        Also try Copying the "<a href="#curl">curl</a>" buffer below into a
         command line. If things work, this text
         will turn green.</div>
     </div>
@@ -146,16 +146,16 @@
     </div>
         <div id="gcmB">
             <div class="title">Encryption Key</div>
-            <div class="description">HKDF generated bits derived from the shared key 
+            <div class="description">HKDF generated bits derived from the shared key
             material, which is a <acronym title='The string "Content-Encoding: aesgcm128"'>
-            static string</acronym> run through the KDF which has been seeded from the 
+            static string</acronym> run through the KDF which has been seeded from the
             <span class="salt">salt</span> and the <span class="local_key"> localKey</span>.
             </div>
             <div class="value"></div>
         </div>
         <div id="nonce">
             <div class="title">Derived Nonce:</div>
-            <div class="description">The "nonce" here is derived from a <acronym 
+            <div class="description">The "nonce" here is derived from a <acronym
                 title='The string used is "Content-Encoding: nonce"'>static
                string</acronym>, run through the KDF which has been seeded from the
                <span class="salt">salt</span>
@@ -186,7 +186,7 @@
         curl. Transcoding the data to base64 or some other encoding mechanism
         will not work.</div>
         <div class="value wrap"></div>
-        <p>If you don't have curl, or don't feel like cutting and pasting, 
+        <p>If you don't have curl, or don't feel like cutting and pasting,
         you can <button id="refresh" disabled>Send the Data</button> and this
         page will do it for you.</p>
     <div id="success" class="hidden">
@@ -233,7 +233,7 @@
     <p>Source available on <a href="https://github.com/jrconlin/WebPushDataTestPage">GitHub</a>. Licensed under <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License v.2.0</a></p>
 </div>
   </body>
-  <script src="FileSaver.js"></script>
+  <!--script src="FileSaver.js"></script -->
   <script src="fetch.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
@@ -255,7 +255,7 @@ function show_ok(state, msg) {
 }
 
 function notify(title, body) {
-    let notif = new Notification(title, 
+    let notif = new Notification(title,
         {body: body,
          icon: "icon.png",
         });
@@ -301,6 +301,9 @@ function register() {
                 console.error("Error", err);
             });
         }
+        if (window.QA_MODE) {
+            subscribe()
+        }
         return registration;
     })
     .catch(function(err) {
@@ -308,7 +311,6 @@ function register() {
         let msg = "Could not start.<br> ";
         show_err(msg);
     });
-
 }
 
 function subscribe() {
@@ -328,7 +330,7 @@ function subscribe() {
 
             */
             console.debug("Registering...", registration);
-            // Get the subscription info. 
+            // Get the subscription info.
             registration.pushManager.subscribe({
                 // Set this to be "true" if you're only displaying
                 // the data to the user. Set it to "false" if you
@@ -354,8 +356,9 @@ function subscribe() {
                     throw err;
                 }
                 output('endpoint', subscription_info.endpoint);
-                output('remoteKey',
-                    base64url.encode(subscription_info.getKey('p256dh')));
+                let rkey =
+                    base64url.encode(subscription_info.getKey('p256dh'));
+                output('remoteKey', rkey);
                 output('salt',
                        base64url.encode(crypto.getRandomValues(
                                             new Uint8Array(16))));
@@ -375,8 +378,11 @@ function subscribe() {
                     //throw err;
                 }
                 document.getElementById("encrypt").disabled = false;
+                if (window.QA_MODE) {
+                    encr(rkey);
+                }
                 return subscription_info.endpoint;
-                
+
             })
             .catch(function(err) {
                 console.error("ERROR: ", err);
@@ -411,7 +417,7 @@ function encr(remoteKey) {
     }
     var data = document.getElementsByName("data")[0].value;
     let rKey = base64url.decode(remoteKey);
-    
+
     var encr = webpush({endpoint: endpoint,
                         p256dh: rKey},
                         data,
@@ -474,7 +480,11 @@ function encr(remoteKey) {
                     send(send_options);
                 }
                 refresh.disabled=false;
-                show_ok(true, false)
+                show_ok(true, false);
+                if (window.QA_MODE) {
+                    send(send_options);
+                }
+
               })
         .catch(e => {
             log.error("Error:", e);
@@ -484,7 +494,7 @@ function encr(remoteKey) {
 
 document.getElementById('encrypt').onclick = function(event) {
     encr(document.getElementsByName('remoteKey')[0].value);
-    
+
 }
 
 document.getElementById('newSalt').onclick = function(event) {
@@ -502,17 +512,25 @@ navigator.serviceWorker.addEventListener('message', function(event) {
     }
 });
 
-if (navigator.serviceWorker.controller == null) {
-    let regButton = document.getElementById('regButton');
-    let regSec = document.getElementById('regSec');
-    regButton.onclick = register;
-    regSec.classList.remove('hidden');
-} else {
+var QA_MODE = false;
+if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
+    // QA mode, ACTIVATE!
+    QA_MODE = true;
+    console.log("Entering QA mode...");
     register();
-    let subButton = document.getElementById('subscribe');
-    subButton.onclick = subscribe;
-    subButton.disabled = false;
+    subscribe();
+} else {
+    if (navigator.serviceWorker.controller == null) {
+        let regButton = document.getElementById('regButton');
+        let regSec = document.getElementById('regSec');
+        regButton.onclick = register;
+        regSec.classList.remove('hidden');
+    } else {
+        register();
+        let subButton = document.getElementById('subscribe');
+        subButton.onclick = subscribe;
+        subButton.disabled = false;
+    }
 }
-
   </script>
 </html>
