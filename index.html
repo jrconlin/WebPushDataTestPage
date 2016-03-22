@@ -66,16 +66,63 @@
     </div>
     <textarea name="endpoint" value="http://example.com/" class="value endpoint"></textarea>
     </div>
-    <div id="remoteKey">
+    <div id="receiverKey">
     <div class="title">p256dh Key</div>
     <div class="description">The "p256dh" key is the ECDH curve p256 Diffie Hellman key
         returned as part of the subscription. You use
         <code>subscription.getKey('p256dh')</code> to retrieve this value</div>
-    <textarea class="value remote_key" name="remoteKey" ></textarea>
+    <textarea class="value receiverKey" name="receiverKey" ></textarea>
+    </div>
+    <div id="authKey">
+        <div class="title">Auth Key</div>
+        <div class="description">Auth Key is provided by the browser as
+            <code>subscription.getkey('auth')</code> and is extra data for the
+            HKDF function, which generates the Shared Key</div>
+        <div name="authKey" class="value authKey"></div>
     </div>
     </div>
+<div class="section">
+    <h2>2. Add VAPID data</h2>
+    <p>VAPID is an optional header block that allows feeds to "self identify". It consists of a
+    <a href="https://jwt.io">JSON Web Token</a> that contains claims that identify the sender.
+    <div id="vapidPrivate">
+        <div class="title">VAPID private key</div>
+        <div class="description">Normally, you retain your key pair on your server, and reuse the pair for all
+           subsequent calls. You can create a new key pair at any time. Be advised that things like the dashboard
+           will not associate old pair data with a new key. In essence, the new key is a new ID for you.</div>
+       <div name="vapidPrivate" class="value"></div>
+   </div>
+    <div id="vapidPublic">
+        <div class="title">VAPID public key</div>
+        <div class="description">VAPID <b><i>always</i></b> uses it's own set of keys. You sign with the private half
+            and include the public key with the <code>Crypto-Key</code> header. You can also use the
+            public key as an "ID" for the dashboard. This key is in ASN.1 DER format.</div>
+        <div name="vapidPublic" class="value"></div>
+    </div>
+    <div id="vapidClaims">
+        <div class="title">VAPID claims</div>
+        <div>
+            <label for="aud"><b>aud:</b> Audience: The URL for your site</label><br>
+            <input class="item" name="aud" type="url" autocomplete="url" placeholder="http://example.com"><br>
+            <label for="sub"><b>sub:</b> Subscriber: The contact email address for issues regarding this feed</label><br>
+            <input class="item" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
+            <label for="exp"><b>exp:</b> Expiration: When this claim expires (Max is 24 hours from now)</label><br>
+            <input class="item" name="exp" id="vapid_exp" disabled=true><br>
+        </div>
+    </div>
+    <div class="ctrl">Optionally <button id="addVapid">Add VAPID</button></div>
+    <div id="vapidHeaders">
+        <div class="title">VAPID Headers</div>
+        <div class="description">Add these headers to your outbound request. The Headers consist "Authorization"
+            (a JWT containing the <code>claims</code>) and the "Crypto-Key"/ "p256ecdsa" element (containing the
+            "raw" public key used to generate the signature for the "Authorization". Note that "Crypto-Key" may
+            contain multiple elements separated by a comma. If you specify VAPID headers, we'll append them to
+            the Crypto-Key header.</div>
+        <div name="vapidHeaders" class="value"></div>
+    </div>
+</div>
     <div class="section">
-    <h2>2. Generate the Content</h2>
+    <h2>3. Generate the Content</h2>
     <p>These are normally the things you enter per encryption request.</p>
     <div id="salt">
     <div class="title">Salt:</div>
@@ -84,6 +131,7 @@
         This should change for every request, but it can be helpful for
         library authors to see the same salt value.</div>
     <input name="salt" class="salt value" value="salt">
+    <button id="newSalt">New Salt</button>
     </div>
     <div id="data">
     <div class="title">Data:</div>
@@ -98,7 +146,7 @@
     <div class="errMsg hidden">No good. There was a problem with the service worker
         handling the data.<br>
         Check the console and retry to see if it's still a problem.
-        Also try Copying the "<a href="#curl">curl</a>" buffer below into a
+        Also try Copying the "<a href="#send">curl</a>" buffer below into a
         command line. If things work, this text
         will turn green.</div>
     </div>
@@ -106,52 +154,53 @@
     Ok, we're ready to <button id="encrypt" disabled>Encrypt the data</button>
     </div>
 </div>
-<div class="section">
-    <h2>3. Generate the Local Key:</h2>
+<div class="section reset">
+    <h2>4. Generate the Local Key:</h2>
     <p>These items (plus the <span class="salt">Salt</span>) are unique per
     encryption, and usually generated "on the fly" by the various algorithms.
-    Key negotiation requires the generation of a <b class="local_key">Local Key</b>.
+    Key negotiation requires the generation of a <b class="senderKey">Local Key</b>.
     The <b>Local Key</b> is an arbitrary key pair made for this specific
-    exchange and used to derive bits from the <b class="remote_key">p256dh</b> key.
+    exchange and used to derive bits from the <b class="receiverKey">p256dh</b> key.
     </p>
-    <div id="localKeyPri">
+    <div id="senderKeyPri">
         <div class="title">Local Key (private):</div>
         <div class="description">The private portion of the Local Key.
         Unfortunately, it's not easy to read this from a provided value.
         </div>
-        <div class="value wrap"></div>
+        <div name="senderKeyPri" class="value wrap"></div>
     </div>
-    <div id="localKeyPub">
+    <div id="senderKeyPub">
         <div class="title">Local Key (public):</div>
         <div class="description">This key is temporary, but the public key needs to be
         sent as the <span class="def">Encryption Key</span></div>
-        <div class="value"></div>
+        <div name="senderKeyPub" class="value"></div>
     </div>
-    <div id="local_key">
+    <div id="senderKey">
         <div class="title">Local Key (public, raw):</div>
-        <div class="description">This is the same public <b class="local_key">local key</b>,
+        <div class="description">This is the same public
+            <b class="senderKey">local key</b>,
             only formatted in "raw" form. This is the byte array that
             is used for deriving the <span class="nonce">nonce</span></div>
-        <div class="value local_key"></div>
+        <div name="senderKey" class="value senderKey"></div>
     </div>
 </div>
-<div class="section">
-    <h2>4. Encrypt the Message:</h2>
+<div class="section reset">
+    <h2>5. Encrypt the Message:</h2>
     <p>These items are the various intermediary and final elements used to
     generate the encryption key.</p>
-    <div id="sharedKey">
+    <div id="ikm">
         <div class="title">Shared Key:</div>
-        <div class="description">AES-GCM key material derived from the private <b class="local_key">local key</b> and public <b class="remote_key">p256dh key</b>. This comes from a <code>WebCrypto.deriveBits</code> call in <code>webpush.js</code></div>
-        <div class="value"></div>
+        <div class="description">AES-GCM key material derived from the private <b class="senderKey">local key</b> and public <b class="receiverKey">p256dh key</b>. This comes from a <code>WebCrypto.deriveBits</code> call in <code>webpush.js</code></div>
+        <div name="ikm" class="value"></div>
     </div>
         <div id="gcmB">
             <div class="title">Encryption Key</div>
             <div class="description">HKDF generated bits derived from the shared key
-            material, which is a <acronym title='The string "Content-Encoding: aesgcm128"'>
+            material, which is a <acronym title='The string "Content-Encoding: aesgcm"'>
             static string</acronym> run through the KDF which has been seeded from the
-            <span class="salt">salt</span> and the <span class="local_key"> localKey</span>.
+            <span class="salt">salt</span> and the <span class="senderKey"> senderKey</span>.
             </div>
-            <div class="value"></div>
+            <div name="gcmB" class="value"></div>
         </div>
         <div id="nonce">
             <div class="title">Derived Nonce:</div>
@@ -159,8 +208,8 @@
                 title='The string used is "Content-Encoding: nonce"'>static
                string</acronym>, run through the KDF which has been seeded from the
                <span class="salt">salt</span>
-                and the <span class="local_key"> localKey</span>.</div>
-            <div class="value nonce"></div>
+                and the <span class="senderKey">senderKey</span>.</div>
+            <div name="nonce" class="value nonce"></div>
         </div>
         <div id="iv">
             <div class="title">Initialization Vector:</div>
@@ -169,15 +218,15 @@
             created through the same KDF that created the <span class="nonce">
             nonce</span>, as well the index number of the chunk of data
             we're encoding.</div>
-            <div class="value"></div>
+            <div name="iv" class="value"></div>
         </div>
     </div>
-<div class="section">
-    <h2>5. Send the Message:</h2>
+<div class="section reset">
+    <h2>6. Send the Message:</h2>
     <p>These are the outputs. You can cut and paste the <b>Curl</b>
     content and watch the Web Console to see the message be received and
     handled by the Service Worker.</p>
-    <a name="curl">
+    <a name="send">
     <div id="curl">
         <div class="title">Curl:</div>
         <div class="description">This is a proxy for your library. Please
@@ -185,7 +234,7 @@
         attempting to write the data out to a file, then read it in with
         curl. Transcoding the data to base64 or some other encoding mechanism
         will not work.</div>
-        <div class="value wrap"></div>
+        <div name="curl" class="value wrap"></div>
         <p>If you don't have curl, or don't feel like cutting and pasting,
         you can <button id="refresh" disabled>Send the Data</button> and this
         page will do it for you.</p>
@@ -211,12 +260,12 @@
         <div class="title">Salt:</div>
         <div class="description">The salt value sent in the "Encryption"
         header.</div>
-        <div class="value salt wrap"></div></div>
+        <div name="osalt" class="value salt wrap"></div></div>
     <div id="odh">
         <div class="title">dh:</div>
         <div class="description">Diffie-Hellman key sent in the "Encryption-Key"
         header.</div>
-        <div class="value wrap local_key"></div>
+        <div name="odh" class="value wrap senderKey"></div>
     </div>
     <div id="odata">
         <div class="title">data:</div>
@@ -225,7 +274,7 @@
         whatever byte editor you have (e.g. <code>xxd</code>
         on Linux systems) to verify that the data is correct.
         </div>
-        <div class="value"></div>
+        <div name="odata" class="value"></div>
         <!--div class="ctrl"><button id="saveas" disabled>Save Data As...</button> <span class="note">Experimental!</span></div -->
     </div>
 </div>
@@ -233,17 +282,16 @@
     <p>Source available on <a href="https://github.com/jrconlin/WebPushDataTestPage">GitHub</a>. Licensed under <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License v.2.0</a></p>
 </div>
   </body>
-  <!--script src="FileSaver.js"></script -->
-  <script src="fetch.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
+  <script src="vapid.js"></script>
   <script>
 'use strict';
 
 function show_ok(state, msg) {
     let o = document.getElementById("success");
     if (msg == false) {
-        msg = document.getElementsByName("data")[0].value;
+        msg = get("data");
     }
     o.getElementsByClassName("msg")[0].textContent = msg;
     o.getElementsByClassName("via")[0].textContent = `via ${document.location.host}`;
@@ -320,7 +368,7 @@ function subscribe() {
        a little purely to make the page a little less "magical" about what
        it's doing.
     */
-    navigator.serviceWorker.getRegistration()
+    let info = navigator.serviceWorker.getRegistration()
         .then( function(registration){
             /* The service worker script has been loaded, so
                now we need to register for an endpoint.
@@ -358,31 +406,31 @@ function subscribe() {
                 output('endpoint', subscription_info.endpoint);
                 let rkey =
                     base64url.encode(subscription_info.getKey('p256dh'));
-                output('remoteKey', rkey);
+                output('receiverKey', rkey);
                 output('salt',
                        base64url.encode(crypto.getRandomValues(
                                             new Uint8Array(16))));
                 try {
+                    // Auth key allows for improved Crypto-Key support.
+                    // However, it's being slowly rolled out.
                     let authKey = subscription_info.getKey('auth');
-                    if (authKey) {
-                        console.debug ("Auth key: ",
-                            base64url.encode(subscription_info.getKey('auth')));
+                    output('authKey', base64url.encode(authKey));
+                    if (! authKey) {
+                        console.warn ("This browser doesn't support auth key. Please update.");
                     }
                 } catch (e) {
-                    let err = new Error();
-                    // This page follows the latest specification.
-                    // It's been tested against Firefox 45+
-                    err.name = "OldVersion";
-                    err.message = "This browser version doesn't use the latest "+
-                        "encryption model, and therefore won't work.";
                     //throw err;
+                    console.warn("Crypto-Key support unavailable.");
                 }
                 document.getElementById("encrypt").disabled = false;
                 if (window.QA_MODE) {
                     encr(rkey);
                 }
-                return subscription_info.endpoint;
+                return subscription_info;
 
+            })
+            .then(function(info) {
+                window.subscription_info = info;
             })
             .catch(function(err) {
                 console.error("ERROR: ", err);
@@ -403,26 +451,57 @@ function subscribe() {
 };
 
 
-function encr(remoteKey) {
+function reset() {
+    let resets = document.getElementsByClassName("reset");
+    for (let i of resets) {
+        let items = i.getElementsByClassName("value");
+        for (let j of items) {
+            let target =  j.attributes.getNamedItem('name').value;
+            output(target, "");
+        }
+    }
+}
+
+
+function encr(receiverKey) {
     /* Fetch & fill various fields, attempt to create a message and send
        it to yourself.
     */
-    var endpoint = document.getElementsByName("endpoint")[0].value;
-    var salt = base64url.decode(document.getElementsByName("salt")[0].value);
+    let endpoint = get("endpoint");
+    let salt = base64url.decode(get("salt"));
     if (!salt) {
         return;
     }
-    if (! remoteKey) {
-        remoteKey = document.getElementsByName("remoteKey")[0].value;
+    if (! receiverKey) {
+        receiverKey = get("receiverKey");
     }
-    var data = document.getElementsByName("data")[0].value;
-    let rKey = base64url.decode(remoteKey);
+    let data = get("data");
+    let rKey = base64url.decode(receiverKey);
+    let authKey;
+    try {
+        // Auth key allows for improved Crypto-Key support.
+        // However, it's being slowly rolled out.
+        authKey = subscription_info.getKey('auth');
+        if (authKey) {
+            console.debug ("Auth key: ",
+                base64url.encode(authKey));
+        }
+    } catch (e) {
+        //throw err;
+        console.warn("Crypto-Key support unavailable.");
+    }
 
     var encr = webpush({endpoint: endpoint,
-                        p256dh: rKey},
+                        receiverKey: rKey,
+                        authKey: authKey},
                         data,
                         salt)
         .then(options => {
+                // If we have VAPID info, fetch it.
+                let vapid_headers = get("vapidHeaders");
+                if (vapid_headers) {
+                    vapid_headers = JSON.parse(vapid_headers);
+                }
                 // Populate the extra fields
                 output('osalt', base64url.encode(options.salt));
                 output('odh', base64url.encode(options.dh));
@@ -453,21 +532,38 @@ function encr(remoteKey) {
                 // folks doing device work.
                 rawStr = outStr;
                 rawStr += `curl -v -X ${options.method} ${options.endpoint} `;
-                rawStr += ' -H "encryption-key: keyid=p256dh;dh=' +
-                    base64url.encode(options.dh) + '"';
+                let enc_content = 'keyid=p256dh;dh=' + base64url.encode(options.dh);
+                if (options.encr_header == "crypto-key" && vapid_headers) {
+                    // add the vapid info
+                    enc_content += "," + vapid_headers["crypto-key"];
+                    rawStr += ` -H "Authorization: ` +
+                        `${vapid_headers.authorization}" `;
+                }
+                rawStr += ` -H "${options.encr_header}: ` + enc_content + '"';
                 rawStr += ' -H "encryption: keyid=p256dh;salt=' +
                     base64url.encode(options.salt) + '"';
-                rawStr += ' -H "content-encoding: aesgcm128"';
+                rawStr += ' -H "content-encoding: aesgcm"';
+                rawStr += ' -H "TTL: 60"';
                 rawStr += ' --data-binary @encrypted.data';
                 console.log(rawStr);
+
                 // outStr is the styled version, which is easier for humans
+                enc_content = 'keyid=p256dh;dh=<span class="senderKey">' +
+                    base64url.encode(options.dh) + '</span>'
                 outStr += `\ncurl -v -X ${options.method} ` +
                     ` <span class="endpoint">${options.endpoint}</span> `;
-                outStr += ' -H "encryption-key: keyid=p256dh;dh=<span ' +
-                    `class="local_key">${base64url.encode(options.dh)}</span>"`;
+                if (options.encr_header == "crypto-key" && vapid_headers) {
+                    // add the vapid info
+                    enc_content += ',<span class="vapidHeader">' +
+                        vapid_headers["crypto-key"] + '</span>';
+                    outStr += ` -H "Authorization: <span class="vapidHeader">` +
+                        `${vapid_headers.authorization}</span>"`;
+                }
+
+                outStr += ` -H "${options.encr_header}: ${enc_content}"`;
                 outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
                     `class="salt">${base64url.encode(options.salt)}</span>"`;
-                outStr += ' -H "content-encoding: aesgcm128"';
+                outStr += ` -H "content-encoding: ${options.content_type}"`;
                 outStr += ' -H "TTL: 60"';
                 outStr += ' --data-binary @encrypted.data';
                 output('curl', outStr);
@@ -487,17 +583,19 @@ function encr(remoteKey) {
 
               })
         .catch(e => {
-            log.error("Error:", e);
+            console.error("Error:", e);
         });
 }
 
 
 document.getElementById('encrypt').onclick = function(event) {
-    encr(document.getElementsByName('remoteKey')[0].value);
+    reset();
+    encr(get('receiverKey'));
 
 }
 
 document.getElementById('newSalt').onclick = function(event) {
+    reset();
     output('salt', base64url.encode(newSalt()));
 }
 
@@ -506,13 +604,54 @@ navigator.serviceWorker.addEventListener('message', function(event) {
     if (event.data.type == 'content') {
         // Compare what we got with the source to make sure
         // that things worked ok.
-        let source = document.getElementsByName("data")[0].value;
+        let source = get("data");
         notify("Got message", event.data.content);
         show_ok(true, event.data.content);
     }
 });
 
 var QA_MODE = false;
+
+function init_vapid(){
+    // Vapid should ALWAYS use it's own key set.
+    vapid.generate_keys().then( function() {
+        vapid.export_private_der()
+            .then(k => output("vapidPrivate", k))
+            .catch(err=> console.error(err));
+        vapid.export_public_der()
+            .then(k => output("vapidPublic", k))
+            .catch(err=>console.error(err));
+        }).catch(err => {
+            console.error(err);
+        })
+    document.getElementById('vapid_exp').value = parseInt(Date.now()*.001) + 86400;
+    document.getElementById('addVapid').addEventListener('click', function(event) {
+        add_vapid(event);
+        reset();
+    });
+}
+
+function add_vapid(event) {
+    /* Add the optional VAPID information.
+
+       See vapid.js for how this is built using Javascript.
+       (I'll note that it's MUCH easier using other languages like python or java.)
+    */
+    let vapid_items = document.getElementById('vapidClaims').getElementsByClassName("item");
+    let claims = {};
+    for (let i of vapid_items){
+        if (! i.value) {
+            console.error(`VAPID value "${i.name}" is empty. Can't proceed`);
+            return false;
+        }
+        claims[i.name] = i.value;
+    }
+    vapid.sign(claims).then(headers => {
+            output("vapidHeaders", JSON.stringify(headers, null, '   '))
+        })
+        .catch(err => {console.error(err)});
+}
+
 if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     // QA mode, ACTIVATE!
     QA_MODE = true;
@@ -520,6 +659,7 @@ if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     register();
     subscribe();
 } else {
+    init_vapid();
     if (navigator.serviceWorker.controller == null) {
         let regButton = document.getElementById('regButton');
         let regSec = document.getElementById('regSec');
