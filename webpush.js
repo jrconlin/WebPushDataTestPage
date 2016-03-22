@@ -36,8 +36,11 @@
   var ENCRYPT_INFO = new TextEncoder('utf-8').encode(
      "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
+  var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
 
   function textWrap(text, limit) {
+    /* wrap text to a limit by injecting newlines
+     */
     let tlen = text.length;
     let buff = ""
     for (let i=0;i<=tlen;i+=limit) {
@@ -49,8 +52,8 @@
     return buff;
   }
 
-  /* Coerces data into a Uint8Array */
   function ensureView(data) {
+    /* Coerces data into a Uint8Array */
     if (typeof data === 'string') {
       return new TextEncoder('utf-8').encode(data);
     }
@@ -63,42 +66,8 @@
     throw new Error('webpush() needs a string or BufferSource');
   }
 
-  function hmac(key) {
-    this.keyPromise = webCrypto.importKey(
-        'raw',
-        key,
-        {
-            name: 'HMAC',
-            hash: 'SHA-256'
-        },
-        true,   // Should be false for production.
-        ['sign']);
-  }
-  hmac.prototype.hash = function(input) {
-    return this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
-  }
-
-  function hkdf(salt, ikm) {
-    this.prkhPromise = new hmac(salt).hash(ikm)
-      .then(prk => new hmac(prk));
-  }
-
-  hkdf.prototype.generate = function(info, len) {
-    var input = bsConcat([info, new Uint8Array([1])]);
-    return this.prkhPromise
-      .then(prkh => prkh.hash(input))
-      .then(h => {
-        if (h.byteLength < len) {
-          throw new Error('Length is too long');
-        }
-        var reply;
-        reply  = h.slice(0, len);
-        // console.debug("hkdf gen", base64url.encode(new Int8Array(reply)));
-        return reply;
-      });
-  };
-
   Promise.allMap = function(o) {
+      // Resolve a list of promises
     var result = {};
     return Promise.all(
       Object.keys(o).map(
@@ -107,8 +76,8 @@
     ).then(_ => result);
   };
 
-  /* generate a 96-bit IV for use in GCM, 48-bits of which are populated */
   function generateNonce(base, index) {
+    /* generate a 96-bit IV for use in GCM, 48-bits of which are populated */
     var nonce = base.slice(0, 12);
     for (var i = 0; i < 6; ++i) {
       nonce[nonce.length - 1 - i] ^= (index / Math.pow(256, i)) & 0xff;
@@ -116,16 +85,25 @@
     return nonce;
   }
 
-  function encrypt(localKey, remoteShare, salt, data) {
+  function encodeLength(buffer) {
+      /* Encode a buffer's length as a psuedo 16be value */
+      return new Uint8Array([0, buffer.byteLength]);
+  }
+
+  function encrypt(senderKey, sub, data, salt) {
     /* Encrypt the data using the temporary, locally generated key,
      * the remotely shared key, and a salt value
      *
-     * @param localKey      A temporary, local EC key
-     * @param remoteShare   The public EC key shared by the client
+     * @param senderKey     Locally generated key
+     * @param sub           Subscription information object
      * @param salt          A random "salt" value for the encrypted data
      * @param data          The data to encrypt
+     * @param authSecret    Auth Secret provided by the client
      */
-    console.debug("calling encrypt(", localKey, remoteShare, salt, data, ")");
+    console.debug("calling encrypt(", senderKey, sub, salt, data, ")");
+    let headerType;
+    let contentType;
+
     // Note: Promises can make things a bit hard to follow if you're not
     // familiar with how they work. I'm not going to try to duplicate the
     // fine work of articles like
@@ -134,45 +112,125 @@
     //
     // Import the raw key
     // see: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/importKey
+
     return webCrypto.importKey('raw',
-                               remoteShare, // the remotely shared key
+                               sub.receiverKey, // the remotely shared key
                                P256DH,      // P256 Elliptical Curve, Diffie Hellman
                                true,        // Should be false for prodution
                                ['deriveBits'] // Derive the private key from the imported bits.
                                )
-      .then(remoteKey => {
+      .then(receiverKey => {
           // Ok, we've got a representation of the remote key.
           // Now, derive a shared key from our temporary local key
           // and the remote key we just created.
-          console.debug("client p256dh key:", remoteKey);
+          console.debug("client p256dh key:", receiverKey);
           var args = {name: P256DH.name,
-                      public: remoteKey}
-          console.debug("deriving new key: ", args, localKey, 256)
+                      public: receiverKey}
+          console.debug("deriving new key: ", args, senderKey, 256)
           return webCrypto.deriveBits(args,
-                                      localKey,
+                                      senderKey.privateKey,
                                       256)
       })
-      .then(sharedKey => {
+      .then(function(ikm) {
+          var kdf;
+          var kdfPromise;
+          var cEKinfo;
+          var cNinfo;
+
+          var authSecret;
+
+          try {
+             authSecret = sub.authKey;
+             console.debug("Auth Secret:", new Uint8Array(authSecret));
+          } catch(e) {
+             console.error("No Auth Key: " + e)
+          }
+
           // We now have usable AES key material
           // derived from the remote public key.
-          var sharedKeyStr = base64url.encode(new Int8Array(sharedKey));
-          output("sharedKey", sharedKeyStr);
+          var ikmStr = base64url.encode(new Uint8Array(ikm));
+          console.debug("ikm:     ", new Uint8Array(ikm));
+          output("ikm", ikmStr)
+
+          if (authSecret) {
+            // Build out the second generation encryption base.
+            // this uses additional info to add entropy to the
+            // hkdf routine.
+
+            // The data that feeds the HKDF uses the following
+            // complex data set.
+            function makeInfo(type, te, senderKey) {
+                let headStr = 'Content-Encoding: ' + type;
+                let head = te.encode(headStr);
+                let base = concatArray([
+                    te.encode("\0P-256\0"),
+                    encodeLength(sub.receiverKey),
+                    sub.receiverKey,
+                    encodeLength(senderKey),
+                    senderKey,
+                ]);
+                console.debug('makeInfo head:', headStr);
+                console.debug('makeInfo base:', new Uint8Array(base));
+                return concatArray([head, base]);
+            }
+
+            // Seed the hkdf with the auth token and the key material
+            let authKdf = new hkdf(authSecret, ikm);
+            kdfPromise = authKdf.extract(AUTH_INFO, 32)
+                .then(ikm2 => webCrypto.exportKey('raw', senderKey.publicKey)
+                     .then (senderKey => {
+                          // This is the gauntlet of values we're generating
+                          // in order to encrypt the data.
+                          // These should match on the reciever side.
+                          console.debug("salt: ", new Uint8Array(salt));
+                          console.debug("ikm2: ", new Uint8Array(ikm2));
+                          console.debug("receiverKey: ",
+                              new Uint8Array(sub.receiverKey));
+                          console.debug("senderKey:   ",
+                              new Uint8Array(senderKey));
+                          let te = new TextEncoder('utf-8');
+                          cEKinfo = makeInfo('aesgcm', te, senderKey);
+                          console.debug("cEKinfo: ",
+                              new TextDecoder('utf-8').decode(cEKinfo));
+                          console.debug("cEKinfo: ", cEKinfo);
+                          cNinfo = makeInfo('nonce', te, senderKey);
+                          console.debug("cNinfo: ",
+                              new TextDecoder('utf-8').decode(cNinfo));
+                          console.debug("cNinfo: ", cNinfo);
+                          return new hkdf(salt, ikm2)
+                     })
+                )
+                .catch(err => console.error(err));
+            headerType = "crypto-key";
+            contentType = "aesgcm";
+          } else {
+              // Use the older, out of spec format
+              kdfPromise = Promise.resolve(new hkdf(salt, ikm));
+              cEKinfo = concatArray([ENCRYPT_INFO, new Uint8Array(0)]);
+              cNinfo = concatArray([NONCE_INFO, new Uint8Array(0)]);
+              headerType = "encryption-key";
+              contentType = "aesgcm128";
+          }
 
           // Use hkdf to generate both the encryption array and the nonce.
           // See hkdf() in base64.js
-          var kdf = new hkdf(salt, sharedKey);
+          // var kdf = new hkdf(salt, ikm);
           // Generate the encryptingData, the base object that contains the
           // key and nonce we'll use to actually encrypt the text to be
           // sent.
           return Promise.allMap({
             // The key is generated from a known pattern that's fed to
             // the hkdf that's been initialized off of the salt and the
-            // sharedKey derived from the public half of the ECDH key
+            // ikm derived from the public half of the ECDH key
             // from the browser (the p256dh key)
-            key: kdf.generate(ENCRYPT_INFO, 16)
+            key: kdfPromise
+              .then(kdf => {
+                  return kdf.extract(cEKinfo, 16)
+              })
               .then(gcmBits => {
-                output('gcmB', base64url.encode(new Int8Array(gcmBits)));
-                return webCrypto.importKey(
+                  console.debug("gcmBits: ", new Uint8Array(gcmBits));
+                  output('gcmB', base64url.encode(new Uint8Array(gcmBits)));
+                  return webCrypto.importKey(
                     'raw',          // Import key without an envelope
                     gcmBits,        // the key data
                     'AES-GCM',      // The type of key to generate
@@ -180,26 +238,40 @@
                     ['encrypt'])    // Use this key for encryption
               }),
               // Now, create the Nonce, from the known nonce info.
-            nonce: kdf.generate(NONCE_INFO, 12)
+            nonce: kdfPromise
+              .then(kdf => {
+                  return kdf.extract(cNinfo, 12);
+              })
               .then(nonceBits => {
-                  output('nonce', base64url.encode(new Int8Array(nonceBits)));
+                  console.debug("nonce: ", new Uint8Array(nonceBits));
+                  output('nonce', base64url.encode(new Uint8Array(nonceBits)));
                   return nonceBits})
           })
       })
       .then(encryptingData => {
           // 4096 bytes is the default size, though we burn 1 byte for padding
           console.debug("encryptingData:",encryptingData);
+
           // divide the data into chunks, then, for each chunk...
           return Promise.all(
               chunkArray(data, 4095)
               .map((slice, index) => {
                    // determine the "padded" data block
-                   var padded = bsConcat([new Uint8Array([0]), slice]);
+                   // Padding is a 16Bit Big Endian length + the number
+                   // of 8 bit 0 padding characters.
+                   // let padSize = 4096 - data.length;
+                   let padSize = 0;
+                   let padded = concatArray([
+                       new Uint16Array([be16(padSize)]),
+                       //new Uint8Array(padSize),
+                       slice,
+                  ]);
                   // Generate the Initialization Vector (iv) for this block
                   // based on the previously generated nonce and the offset
                   // of the block.
                    var iv = generateNonce(encryptingData.nonce, index);
                    output("iv", base64url.encode(iv));
+                   console.debug("iv: ", new Uint8Array(iv));
                    var edata= webCrypto.encrypt(
                      {
                         name: 'AES-GCM',
@@ -210,8 +282,8 @@
                    return edata;
           }));
     }).then(data=> {
-        // Turn the object into a single array
-        return bsConcat(data);
+        data = concatArray(data);
+        return {data: data, header: headerType, type: contentType};
     })
     .catch(
         x => console.error(x)
@@ -240,54 +312,56 @@
             P256DH,
             true,          // false for production
             ['deriveBits'])
-      .then(localKey => {
+      .then(senderKey => {
         // Dump the local public key
         // WebCrypto only allows you to export private keys as jwk.
-        webCrypto.exportKey('jwk', localKey.publicKey)
+        webCrypto.exportKey('jwk', senderKey.publicKey)
             .then(key=>{
-                //output('localKeyPub', base64url.encode(key))
-                output('localKeyPub', JSON.stringify(key));
+                //output('senderKeyPub', base64url.encode(key))
+                output('senderKeyPub', JSON.stringify(key));
             })
             .catch(x => console.error(x));
-        webCrypto.exportKey('raw', localKey.publicKey)
+        webCrypto.exportKey('raw', senderKey.publicKey)
           .then(key=>{
-              output('local_key', base64url.encode(key));
+              output('senderKey', base64url.encode(key));
           });
         // Dump the local private key
-        webCrypto.exportKey('jwk', localKey.privateKey)
+        webCrypto.exportKey('jwk', senderKey.privateKey)
             .then(key=> {
                 console.debug("Private Key:", key)
-                output('localKeyPri', JSON.stringify(key))
+                output('senderKeyPri', JSON.stringify(key))
             })
             .catch(x => {console.error(x);
-                         output('localKeyPri', "Could not display key: " + x);
+                         output('senderKeyPri', "Could not display key: " + x);
             });
-        console.debug("Local Key", localKey);
+        console.debug("Sender Key", senderKey);
         // encode all the data as chunks
         return Promise.allMap({
-          payload: encrypt(localKey.privateKey,
-                           subscription.p256dh,
-                           salt,
-                           data),
-          pubkey: webCrypto.exportKey('raw', localKey.publicKey)
+          payload: encrypt(senderKey,
+                           subscription,
+                           data,
+                           salt),
+          pubkey: webCrypto.exportKey('raw', senderKey.publicKey)
         });
       })
       .then(results => {
           let options = {}
           let headers = new Headers();
-          headers.append('encryption-key',
+          headers.append(results.payload.header,
                 'keyid=p256dh;dh=' + base64url.encode(results.pubkey));
           headers.append('encryption',
                 'keyid=p256dh;salt=' + base64url.encode(salt));
-          headers.append('content-encoding', 'aesgcm128')
+          headers.append('content-encoding', results.payload.type)
           headers.append('ttl', 60)
+          options.encr_header = results.payload.header;
+          options.content_type = results.payload.type;
           options.salt = salt;
           options.dh = results.pubkey;
           options.endpoint = subscription.endpoint;
           // include the headers here because sometimes you can't extract
           // them from a used Headers object.
           options.headers = headers;
-          options.payload = results.payload;
+          options.payload = results.payload.data;
           options.method = 'POST';
           return options;
       })

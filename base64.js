@@ -4,12 +4,33 @@
 
 // Write to the various div containers.
 function output(target, value) {
-    var t =  document.getElementById(target).getElementsByClassName("value")[0];
-    if (t.attributes.hasOwnProperty('value')) {
-        t.value = value;
-    } else {
-        t.innerHTML = value;
+    if (target == null){
+        return
     }
+    try {
+        let t = document.getElementsByName(target)[0];
+        if (t.attributes.hasOwnProperty('value')) {
+            t.value = value;
+            return;
+        }
+        t.innerHTML = value;
+    } catch (e) {
+        console.error("output", target, value, e);
+        return null;
+    }
+}
+
+function get(target) {
+    try {
+        let t = document.getElementsByName(target)[0];
+        if (t.attributes.hasOwnProperty('value')) {
+            return t.value;
+        }
+        return t.innerHTML;
+    } catch (TypeError) {
+        return null;
+    }
+
 }
 
 // Split a byte array into chunks of size.
@@ -82,8 +103,7 @@ function hmac(key) {
         ['sign']);
 };
 hmac.prototype.hash = function(input) {
-    var val = this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
-    return val;
+    return this.keyPromise.then(k => webCrypto.sign('HMAC', k, input));
 };
 
 
@@ -93,21 +113,19 @@ function hkdf(salt, ikm) {
     this.prkhPromise = new hmac(salt).hash(ikm)
       .then(prk => new hmac(prk));
 };
-hkdf.prototype.generate = function(info, len) {
-    var input = bsConcat([info, new Uint8Array([1])]);
+hkdf.prototype.extract = function(info, len) {
+    var input = concatArray([info, new Uint8Array([1])]);
     return this.prkhPromise
       .then(prkh => prkh.hash(input))
       .then(h => {
         if (h.byteLength < len) {
           throw new Error('Length is too long');
         }
-        var reply;
-        reply  = h.slice(0, len);
-        return reply;
+        return h.slice(0, len);
       });
 };
 
-function bsConcat(arrays) {
+function concatArray(arrays) {
     // Concatenate the byte arrays into a single Uint8Array.
     var size = arrays.reduce((total, a) => total + a.byteLength, 0);
     var index = 0;
@@ -116,6 +134,11 @@ function bsConcat(arrays) {
         index += a.byteLength;
         return result;
     }, new Uint8Array(size));
+}
+
+function be16(val) {
+    // present an 8bit value as a Big Endian 16bit value
+    return ((val & 0xFF) << 8 ) | ((val >> 8) & 0xFF);
 }
 
 
