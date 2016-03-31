@@ -1,0 +1,1 @@
+/home/jrconlin/src/mozilla/vapid/js/vapid.js
