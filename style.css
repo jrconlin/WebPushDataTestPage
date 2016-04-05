@@ -11,6 +11,7 @@ code {font: 90% "courier new",courier,monospace;}
 .ctrl {margin:.5em 0;font-weight:bold;font-size:120%;}
 .ctrl button {border:2px solid black;border-radius:5px;}
 .section{background-color:#EfEfEf;border-width:2px 0;border-color:#8f8f8f;border-style:solid;}
+.error {color:red; border: 1px solid red;}t
 .errMsg {color:red;}
 #vapidClaims label b{font-weight:bold; display:inline-block; min-width:3em;}
 .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,200,200,50);padding:5px;}
