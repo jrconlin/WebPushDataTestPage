@@ -109,6 +109,7 @@
             <label for="exp"><b>exp:</b> Expiration: When this claim expires (Max is 24 hours from now)</label><br>
             <input class="item" name="exp" id="vapid_exp" disabled=true><br>
         </div>
+        <div id="vapidError" class="errMsg"></div>
     </div>
     <div class="ctrl">Optionally <button id="addVapid">Add VAPID</button></div>
     <div id="vapidHeaders">
@@ -639,12 +640,20 @@ function add_vapid(event) {
     */
     let vapid_items = document.getElementById('vapidClaims').getElementsByClassName("item");
     let claims = {};
+    let vapid_err = "";
     for (let i of vapid_items){
         if (! i.value) {
             console.error(`VAPID value "${i.name}" is empty. Can't proceed`);
-            return false;
+            i.classList.add("error");
+            vapid_err += `${i.name} cannot be empty.<br>`;
+        } else {
+            i.classList.remove("error");
+            claims[i.name] = i.value;
         }
-        claims[i.name] = i.value;
+    }
+    document.getElementById("vapidError").innerHTML = vapid_err;
+    if (vapid_err) {
+        return false;
     }
     vapid.sign(claims).then(headers => {
             output("vapidHeaders", JSON.stringify(headers, null, '   '))
