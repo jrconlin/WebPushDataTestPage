@@ -85,20 +85,6 @@
     <h2>2. Add VAPID data</h2>
     <p>VAPID is an optional header block that allows feeds to "self identify". It consists of a
     <a href="https://jwt.io">JSON Web Token</a> that contains claims that identify the sender.
-    <div id="vapidPrivate">
-        <div class="title">VAPID private key</div>
-        <div class="description">Normally, you retain your key pair on your server, and reuse the pair for all
-           subsequent calls. You can create a new key pair at any time. Be advised that things like the dashboard
-           will not associate old pair data with a new key. In essence, the new key is a new ID for you.</div>
-       <div name="vapidPrivate" class="value"></div>
-   </div>
-    <div id="vapidPublic">
-        <div class="title">VAPID public key</div>
-        <div class="description">VAPID <b><i>always</i></b> uses it's own set of keys. You sign with the private half
-            and include the public key with the <code>Crypto-Key</code> header. You can also use the
-            public key as an "ID" for the dashboard. This key is in ASN.1 DER format.</div>
-        <div name="vapidPublic" class="value"></div>
-    </div>
     <div id="vapidClaims">
         <div class="title">VAPID claims</div>
         <div>
@@ -121,6 +107,31 @@
             the Crypto-Key header.</div>
         <div name="vapidHeaders" class="value"></div>
     </div>
+    <div id="vapidPrivate">
+        <div class="title">VAPID private key</div>
+        <div class="description">Normally, you retain your VAPID key pair on your server, and reuse the pair for all
+           subsequent calls. You can create a new VAPID key pair at any time. Be advised that things like the dashboard
+           will not associate old pair data with a new key. In essence, the new key is a new ID for you.</div>
+       <div name="vapidPrivate" class="value"></div>
+   </div>
+    <div id="vapidPublic">
+        <div class="title">VAPID public key</div>
+        <div class="description">VAPID <b><i>always</i></b> uses it's own set of keys. You sign with the private half
+            and include the public key with the <code>Crypto-Key</code> header. This key is in ASN.1 DER format.</div>
+        <div name="vapidPublic" class="value"></div>
+    <div id="pushDashboard">
+        <div class="title">Push Dashboard</div>
+        <div class="description">
+          <p>To monitor your push messages, you will add the VAPID public key to your app in <a href="https://dev-dashboard.deis.dev.mozaws.net/en/" target="_blank">the push dashboard</a>. To validate you own the app, you will also need to sign a token with your VAPID private key, and paste the signed token back into the dashboard.</p>
+          <p>If you are using this page to test, you can paste this test VAPID public key into the dashboard:</p>
+          <div name="vapidPublicForDashboard" class="value"></div>
+          <p>Then paste the app token here to get the signed token value:</p>
+          <input class="item" name="push_app_token" id="push_app_token">
+          <button id="signToken">Sign token</button>
+          <div class="value" name="signedToken"></div>
+        </div>
+    </div>
+  </div>
 </div>
     <div class="section">
     <h2>3. Generate the Content</h2>
@@ -620,7 +631,10 @@ function init_vapid(){
             .then(k => output("vapidPrivate", k))
             .catch(err=> console.error(err));
         vapid.export_public_der()
-            .then(k => output("vapidPublic", k))
+            .then(k => {
+                output("vapidPublic", k);
+                output("vapidPublicForDashboard", k);
+            })
             .catch(err=>console.error(err));
         }).catch(err => {
             console.error(err);
@@ -628,6 +642,10 @@ function init_vapid(){
     document.getElementById('vapid_exp').value = parseInt(Date.now()*.001) + 86400;
     document.getElementById('addVapid').addEventListener('click', function(event) {
         add_vapid(event);
+        reset();
+    });
+    document.getElementById('signToken').addEventListener('click', function(event) {
+        sign_token(event);
         reset();
     });
 }
@@ -659,6 +677,13 @@ function add_vapid(event) {
             output("vapidHeaders", JSON.stringify(headers, null, '   '))
         })
         .catch(err => {console.error(err)});
+}
+
+function sign_token(event) {
+  let push_app_token = document.getElementById('push_app_token');
+  let signed_token = vapid.signString(push_app_token.value).then(signed_token => {
+    output("signedToken", signed_token)
+    });
 }
 
 if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {

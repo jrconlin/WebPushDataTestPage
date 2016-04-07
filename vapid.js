@@ -223,6 +223,15 @@ var vapid = {
             })
     },
 
+    signString: function(string) {
+      let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
+      return webCrypto.sign(alg, this._private_key, this._str_to_array(string))
+        .then(signed => {
+          let sig = this.url_btoa(signed);
+          return sig;
+        });
+    },
+
     verify: function(token, public_key=null) {
         /* Verify a VAPID token.
          *
