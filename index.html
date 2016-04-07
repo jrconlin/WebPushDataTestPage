@@ -633,9 +633,13 @@ function init_vapid(){
         vapid.export_public_der()
             .then(k => {
                 output("vapidPublic", k);
-                output("vapidPublicForDashboard", k);
             })
             .catch(err=>console.error(err));
+        vapid.export_public_raw()
+            .then(k => {
+                output("vapidPublicForDashboard", k);
+           })
+           .catch(err=>console.error(err));
         }).catch(err => {
             console.error(err);
         })

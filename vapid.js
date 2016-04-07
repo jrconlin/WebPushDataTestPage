@@ -19,6 +19,22 @@ function chr(c){
 var vapid = {
     /* Generate and verify a VAPID token */
 
+    errs: {
+        enus: {
+            OK_VAPID_KEYS: "VAPID Keys defined.",
+            ERR_VAPID_KEY: "VAPID generate keys error: ",
+            ERR_PUB_R_KEY: "Invalid Public Key record. Please use a valid RAW Formatted record.",
+            ERR_PUB_D_KEY: "Invalid Public Key record. Please use a valid DER Formatted record.",
+            ERR_NO_KEYS: "No keys defined. Please use generate_keys() or load a public key.",
+            ERR_CLAIM_MIS: "Claim missing ",
+            ERR_SIGN: "Sign error",
+            ERR_VERIFY_SG: "Verify Error: Auth signature invalid: ",
+            ERR_VERIFY_KE: "Verify Error: Key invalid: ",
+            ERR_SIGNATURE: "Signature Invalid",
+            ERR_VERIFY: "Verify error",
+        }
+    },
+
     _private_key:  "",
     _public_key: "",
 
@@ -32,10 +48,10 @@ var vapid = {
            .then(keys => {
               this._private_key = keys.privateKey;
               this._public_key = keys.publicKey;
-              console.info("VAPID Keys defined.");
+              console.info(this.errs.enus.OK_VAPID_KEYS);
            })
            .catch(fail => {
-               console.error("VAPID generate keys error:", fail);
+               console.error(this.errs.enus.ERR_VAPID_KEY, fail);
                });
     },
 
@@ -83,10 +99,10 @@ var vapid = {
         return webCrypto.exportKey("jwk", this._private_key)
             .then(k => {
                 // verifying key
-                let xv = this.url_atob(k.x);
-                let yv = this.url_atob(k.y);
+                let xv = String.fromCharCode.apply(null, this.url_atob(k.x));
+                let yv = String.fromCharCode.apply(null, this.url_atob(k.y));
                 // private key
-                let dv = this.url_atob(k.d);
+                let dv = String.fromCharCode.apply(null, this.url_atob(k.d));
 
                 // verifying key (public)
                 let vk = '\x00\x04' + xv + yv;
@@ -134,6 +150,42 @@ var vapid = {
             });
     },
 
+    export_public_raw: function() {
+        return webCrypto.exportKey('raw', this._public_key)
+            .then( key => {
+                return this.url_btoa(key);
+            })
+    },
+
+    import_public_raw: function(raw) {
+        if (typeof(raw) == "string") {
+            raw = this.url_atob(raw);
+        }
+        let err = new Error(this.errs.enus.ERR_PUB_KEY);
+
+        // Raw is supposed to start with a 0x04, but some libraries don't. sigh.
+        if (raw.length == 65 && raw[0] != 4) {
+            throw err;
+        }
+
+        raw= raw.slice(-64);
+        let x = this.url_btoa(String.fromCharCode.apply(null, raw.slice(0,32)));
+        let y = this.url_btoa(String.fromCharCode.apply(null, raw.slice(32,64)));
+
+        // Convert to a JWK and import it.
+        let jwk = {
+            crv: "P-256",
+            ext: true,
+            key_ops: ["verify"],
+            kty: "EC",
+            x: x,
+            y, y
+        };
+
+        return webCrypto.importKey('jwk', jwk, 'ECDSA', true, ["verify"])
+    },
+
+
     import_public_der: function(derArray) {
         /* Import a DER formatted public key string.
          *
@@ -144,7 +196,7 @@ var vapid = {
             derArray = this.url_atob(derArray);
         }
         /* Super light weight public key import function */
-        let err = new Error("Invalid Public Key record. Please use a valid DER Formatted record.");
+        let err = new Error(this.errs.enus.ERR_PUB_D_KEY);
         // Does the record begin with "\x30"
         if (derArray[0] != 48) { throw err}
         // is this an ECDSA record? (looking for \x2a and \x86
@@ -183,14 +235,14 @@ var vapid = {
          * to specify VAPID auth.
         */
         if (this._public_key == "") {
-            throw new Error("No keys defined. Please use generate_keys() or load a public key.");
+            throw new Error(this.errs.enus.ERR_NO_KEYS);
         }
         if (!claims.hasOwnProperty("exp")) {
             claims.exp = parseInt(Date.now()*.001) + 86400;
         }
         ["sub","aud"].forEach(function(key){
             if (! claims.hasOwnProperty(key)) {
-                throw new Error("Claim missing ", key);
+                throw new Error(this.errs.enus.ERR_CLAIM_MIS, key);
             }
         })
         let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
@@ -212,24 +264,36 @@ var vapid = {
                  */
                 return webCrypto.exportKey('raw', this._public_key)
                     .then( key => {
+                        let pubKey = this.url_btoa(key);
                         return {
                             authorization: "Bearer " + content + "." + sig,
-                            "crypto-key": "p256ecdsa=" + this.url_btoa(key),
+                            "crypto-key": "p256ecdsa=" + pubKey,
+                            publicKey: pubKey,
                         }
                     })
             })
             .catch(err => {
-                console.error("Sign error", err);
+                console.error(this.errs.enus.ERR_SIGN, err);
             })
     },
 
     signString: function(string) {
-      let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
-      return webCrypto.sign(alg, this._private_key, this._str_to_array(string))
-        .then(signed => {
-          let sig = this.url_btoa(signed);
-          return sig;
-        });
+        /* Sign the token for the developer Dashboard */
+        let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
+        let t2v = this.url_atob(string);
+        return webCrypto.sign(alg, this._private_key, t2v)
+            .then(signed => {
+                let sig = this.url_btoa(signed);
+                return sig;
+            });
+    },
+
+    verifyString: function(sig, string) {
+        /* verify a given signature string matches */
+        let alg = { name: "ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
+        let vsig = this.url_atob(sig);
+        let t2v = this.url_atob(string);
+        return webCrypto.verify(alg, this._public_key, vsig, t2v);
     },
 
     verify: function(token, public_key=null) {
@@ -253,16 +317,34 @@ var vapid = {
 
             // If there's no public key already defined, load the public_key
             // and try again.
-            return this.import_public_der(public_key)
-                .then(key => {return this.verify(token)});
+            return this.import_public_raw(public_key)
+                .then(key => {
+                    this._public_key = key;
+                    return this.verify(token);
+                })
+                .catch(err => {
+                    console.error("Verify error", err);
+                    throw err;
+                });
         }
         if (this._public_key == "") {
-            throw new Error("No keys defined. Please use generate_keys() or load a private key.");
+            throw new Error(this.errs.enus.ERR_NO_KEYS);
         }
 
-        let alg = { name: "ECDSA", namedCurve: "P-256", hash: "SHA-256" };
+        let alg = { name: "ECDSA", namedCurve: "P-256", hash: {name: "SHA-256" }};
         let items = token.split('.');
-        let signature = this.url_atob(items[2]);
+        let signature;
+        let key;
+        try {
+            signature = this.url_atob(items[2]);
+        } catch (err) {
+            throw new Error(this.errs.enus.ERR_VERIFY_SG + err.message);
+        }
+        try {
+            key = this.url_atob(items[1]);
+        } catch (err) {
+            throw new Error(this.errs.enus.ERR_VERIFY_KE + err.message);
+        }
         let content = items.slice(0,2).join('.');
         let signatory = this._str_to_array(content);
         return webCrypto.verify(
@@ -275,10 +357,11 @@ var vapid = {
                    return JSON.parse(String.fromCharCode
                                         .apply(null, this.url_atob(items[1])))
                }
-               return {}
+               throw new Error(this.errs.enus.ERR_SIGNATURE);
            })
            .catch(err => {
-               console.error("Verify error", err);
+               console.error(this.errs.enus.ERR_VERIFY, err);
+               throw new Error (this.errs.enus.ERR_VERIFY + ": " + err.message);
            });
     }
 }
