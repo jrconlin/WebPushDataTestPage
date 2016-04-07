@@ -300,6 +300,12 @@
   <script>
 'use strict';
 
+document.body.onload = function() {
+    if (window.location.protocol.replace(/:/, '').toLowerCase() === 'http') {
+        window.location.href = window.location.href.replace(/^http:/i, 'https:');
+    }
+};
+
 function show_ok(state, msg) {
     let o = document.getElementById("success");
     if (msg == false) {
@@ -633,9 +639,13 @@ function init_vapid(){
         vapid.export_public_der()
             .then(k => {
                 output("vapidPublic", k);
-                output("vapidPublicForDashboard", k);
             })
             .catch(err=>console.error(err));
+        vapid.export_public_raw()
+            .then(k => {
+                output("vapidPublicForDashboard", k);
+           })
+           .catch(err=>console.error(err));
         }).catch(err => {
             console.error(err);
         })
@@ -681,7 +691,7 @@ function add_vapid(event) {
 
 function sign_token(event) {
   let push_app_token = document.getElementById('push_app_token');
-  let signed_token = vapid.signString(push_app_token.value).then(signed_token => {
+  let signed_token = vapid.validate(push_app_token.value).then(signed_token => {
     output("signedToken", signed_token)
     });
 }
