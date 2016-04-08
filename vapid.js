@@ -63,10 +63,9 @@ var vapid = {
          * TextEncoders would be faster, but have a habit of altering
          * byte order
          */
-        let split = str.split("");
-        let reply = new Uint8Array(split.length);
-        for (let i in split) {
-            reply[i] = String.charCodeAt(split[i]);
+        let reply = new Uint8Array(str.length);
+        for (let i = 0; i < str.length; i++) {
+            reply[i] = str.charCodeAt(i);
         }
         return reply;
     },
@@ -81,11 +80,17 @@ var vapid = {
         /* Convert a binary array into a URL safe base64 string */
         return btoa(data)
             .replace(/\+/g, "-")
-            .replace(/\//g, "_");
+            .replace(/\//g, "_")
+            .replace(/=/g, "");
     },
 
     fromUrlBase64: function(data) {
         /* return a binary array from a URL safe base64 string */
+        if (data.length % 4 == 2) {
+            data += "==";
+        } else if (data.length % 4 == 3) {
+            data += "=";
+        }
         return this._str_to_array(atob(data
                                        .replace(/\-/g, "+")
                                        .replace(/\_/g, "/")));
