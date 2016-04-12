@@ -685,7 +685,7 @@ function add_vapid(event) {
 
 function sign_token(event) {
   let push_app_token = document.getElementById('push_app_token');
-  let signed_token = vapid.signString(push_app_token.value).then(signed_token => {
+  let signed_token = vapid.validate(push_app_token.value).then(signed_token => {
     output("signedToken", signed_token)
     });
 }
