@@ -294,6 +294,7 @@
     <p>Source available on <a href="https://github.com/jrconlin/WebPushDataTestPage">GitHub</a>. Licensed under <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License v.2.0</a></p>
 </div>
   </body>
+  <script src="common.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script src="vapid.js"></script>
@@ -516,7 +517,7 @@ function encr(receiverKey) {
                 }
                 // Populate the extra fields
                 output('osalt', base64url.encode(options.salt));
-                output('odh', base64url.encode(options.dh));
+                output('odh', options.dh);
                 let rawStr = '';
                 let outStr = '';
                 // Construct the curl. Remember, this needs to
@@ -544,7 +545,7 @@ function encr(receiverKey) {
                 // folks doing device work.
                 rawStr = outStr;
                 rawStr += `curl -v -X ${options.method} ${options.endpoint} `;
-                let enc_content = 'keyid=p256dh;dh=' + base64url.encode(options.dh);
+                let enc_content = 'keyid=p256dh;dh=' + options.dh;
                 if (options.encr_header == "crypto-key" && vapid_headers) {
                     // add the vapid info
                     enc_content += "," + vapid_headers["crypto-key"];
@@ -561,7 +562,7 @@ function encr(receiverKey) {
 
                 // outStr is the styled version, which is easier for humans
                 enc_content = 'keyid=p256dh;dh=<span class="senderKey">' +
-                    base64url.encode(options.dh) + '</span>'
+                    options.dh + '</span>'
                 outStr += `\ncurl -v -X ${options.method} ` +
                     ` <span class="endpoint">${options.endpoint}</span> `;
                 if (options.encr_header == "crypto-key" && vapid_headers) {
@@ -690,6 +691,89 @@ function sign_token(event) {
     });
 }
 
+function preflight(){
+    // Check that this browser can do all we're going to ask of it.
+    try{
+        let msg = "This browser is not yet ready to support Webpush data. ";
+        let webCrypto = window.crypto.subtle;
+        var pfkeys;
+        /* First, let's check that ECDH is supported. We'll need that
+         * for pretty much everything.
+         */
+        webCrypto.generateKey(
+             {name:"ECDH", namedCurve: "P-256"},
+             true,
+             ["deriveBits"])
+            .then(new_keys => {
+                /* Neat, now on to 'raw' key format. Raw keys are used
+                 * for things like the Crypto Key values. It's possible to 
+                 * fake them (see common.js JWKToRaw) but there are lots
+                 * of potential bugs in that approach. 
+                 */
+                pfkeys = new_keys;
+                webCrypto.exportKey('raw', pfkeys.publicKey)
+                .then(key => {
+                    /* Can we import a public key for key bit derivation?
+                     * This is used by signing mechanisms like VAPID and 
+                     * data sends. Again, possible to fake, but introduces
+                     * more bugs than it solves.
+                     */
+                    webCrypto.importKey(
+                        'raw',
+                        key,
+                        {name:"ECDH", namedCurve:"P-256"},
+                        true,
+                        ['deriveBits'])
+                        .then( key => {
+                            /* And finally, can we derive bits from the 
+                             * imported key and the private key? This is 
+                             * the core of ECDSA. If it fails, yeah, nothing
+                             * is ever going to work. Christmas is ruined 
+                             * forever, etc.
+                             */
+                            webCrypto.deriveBits(
+                                {name:"ECDH",
+                                 namedCurve:"P-256",
+                                 public: key},
+                                pfkeys.privateKey,
+                                256)
+                            .then(derived => {
+                                console.debug("Preflight is Ok");
+                                return true;
+                                })
+                            .catch(err => {
+                                show_err(msg + 
+                                "<br>ECDSA key derivation not supported.<br>" +
+                                err.toString());
+                                console.error(err);
+                                });
+                            })
+                        .catch(err => {
+                            show_err(msg + 
+                                "<br>Raw key import not supported.</br>" +
+                                  err.toString());
+                            console.error(err); 
+                        });
+                })
+                .catch(err => {
+                    show_err(msg + 
+                        "<br>Raw key export not supported.<br>" +
+                        err.toString());
+                    console.error(err); 
+                });
+            })
+            .catch(err => {
+                show_err(msg + "<br>Preflight failed</br>" + err.toString());
+                });
+    } catch (e) {
+        show_error(msg + "<br>" + e.toString());
+        console.error("Preflight Failure", e);
+        return false;
+    }
+}
+
+preflight();
+
 if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     // QA mode, ACTIVATE!
     QA_MODE = true;
@@ -697,7 +781,11 @@ if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     register();
     subscribe();
 } else {
-    init_vapid();
+    try {
+        init_vapid();
+    } catch (e) {
+        show_err("Could not generate VAPID keys: " + e.message);
+    }
     if (navigator.serviceWorker.controller == null) {
         let regButton = document.getElementById('regButton');
         let regSec = document.getElementById('regSec');

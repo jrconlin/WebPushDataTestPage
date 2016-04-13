@@ -36,7 +36,7 @@
   var ENCRYPT_INFO = new TextEncoder('utf-8').encode(
      "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
-  var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
+ var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
 
   function textWrap(text, limit) {
     /* wrap text to a limit by injecting newlines
@@ -90,6 +90,8 @@
       return new Uint8Array([0, buffer.byteLength]);
   }
 
+
+
   function encrypt(senderKey, sub, data, salt) {
     /* Encrypt the data using the temporary, locally generated key,
      * the remotely shared key, and a salt value
@@ -113,18 +115,19 @@
     // Import the raw key
     // see: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/importKey
 
+    console.debug("receiverKey:", sub.receiverKey);
     return webCrypto.importKey('raw',
-                               sub.receiverKey, // the remotely shared key
-                               P256DH,      // P256 Elliptical Curve, Diffie Hellman
-                               true,        // Should be false for prodution
-                               ['deriveBits'] // Derive the private key from the imported bits.
-                               )
+                               sub.receiverKey,
+                               P256DH,
+                               true,
+                               ['deriveBits'])
       .then(receiverKey => {
           // Ok, we've got a representation of the remote key.
           // Now, derive a shared key from our temporary local key
           // and the remote key we just created.
           console.debug("client p256dh key:", receiverKey);
           var args = {name: P256DH.name,
+                      namedCurve: P256DH.namedCurve,
                       public: receiverKey}
           console.debug("deriving new key: ", args, senderKey, 256)
           return webCrypto.deriveBits(args,
@@ -143,7 +146,8 @@
              authSecret = sub.authKey;
              console.debug("Auth Secret:", new Uint8Array(authSecret));
           } catch(e) {
-             console.error("No Auth Key: " + e)
+             console.error("No Auth Key: " + e);
+             throw e;
           }
 
           // We now have usable AES key material
@@ -200,7 +204,10 @@
                           return new hkdf(salt, ikm2)
                      })
                 )
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error(err);
+                    throw err;
+                });
             headerType = "crypto-key";
             contentType = "aesgcm";
           } else {
@@ -228,11 +235,12 @@
                   return kdf.extract(cEKinfo, 16)
               })
               .then(gcmBits => {
-                  console.debug("gcmBits: ", new Uint8Array(gcmBits));
+                  console.debug("gcmBits: ",new Uint8Array(gcmBits));
                   output('gcmB', base64url.encode(new Uint8Array(gcmBits)));
+                  //let key = mzcc.rawToJWK(gcmBits, ['encrypt']);
                   return webCrypto.importKey(
-                    'raw',          // Import key without an envelope
-                    gcmBits,        // the key data
+                    'raw',
+                    gcmBits,           // the key data
                     'AES-GCM',      // The type of key to generate
                     true,
                     ['encrypt'])    // Use this key for encryption
@@ -285,9 +293,10 @@
         data = concatArray(data);
         return {data: data, header: headerType, type: contentType};
     })
-    .catch(
-        x => console.error(x)
-     );
+    .catch(err => {
+        console.error(err);
+        throw err;
+        });
   }
 
   /*
@@ -318,13 +327,10 @@
         webCrypto.exportKey('jwk', senderKey.publicKey)
             .then(key=>{
                 //output('senderKeyPub', base64url.encode(key))
+                output('senderKey', mzcc.JWKToRaw(key));
                 output('senderKeyPub', JSON.stringify(key));
             })
             .catch(x => console.error(x));
-        webCrypto.exportKey('raw', senderKey.publicKey)
-          .then(key=>{
-              output('senderKey', base64url.encode(key));
-          });
         // Dump the local private key
         webCrypto.exportKey('jwk', senderKey.privateKey)
             .then(key=> {
@@ -341,14 +347,15 @@
                            subscription,
                            data,
                            salt),
-          pubkey: webCrypto.exportKey('raw', senderKey.publicKey)
+          pubkey: webCrypto.exportKey('jwk', senderKey.publicKey)
         });
       })
       .then(results => {
           let options = {}
           let headers = new Headers();
+          let rawPub = mzcc.JWKToRaw(results.pubkey);
           headers.append(results.payload.header,
-                'keyid=p256dh;dh=' + base64url.encode(results.pubkey));
+                'keyid=p256dh;dh=' + rawPub);
           headers.append('encryption',
                 'keyid=p256dh;salt=' + base64url.encode(salt));
           headers.append('content-encoding', results.payload.type)
@@ -356,7 +363,7 @@
           options.encr_header = results.payload.header;
           options.content_type = results.payload.type;
           options.salt = salt;
-          options.dh = results.pubkey;
+          options.dh = rawPub;
           options.endpoint = subscription.endpoint;
           // include the headers here because sometimes you can't extract
           // them from a used Headers object.
@@ -365,7 +372,10 @@
           options.method = 'POST';
           return options;
       })
-      .catch(err => console.error("Unknown error:", err));
+      .catch(err =>{
+            console.error("Unknown error:", err);
+            throw err;
+       });
   }
 
 function send(options) {

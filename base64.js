@@ -92,6 +92,7 @@ var base64url = {
 // Hash-Based Message Authentication Code
 // This generates a secure hash based on the key.
 function hmac(key) {
+    // key = mzcc.rawToJWK(key);
     this.keyPromise = webCrypto.importKey(
         'raw',
         key,
