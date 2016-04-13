@@ -60,7 +60,6 @@ var base64url = {
     _strmap: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg' +
              'hijklmnopqrstuvwxyz0123456789-_',
     encode: function(data) {
-      //  console.debug('Encoding:', data);
       data = new Uint8Array(data);
       var len = Math.ceil(data.length * 4 / 3);
       return chunkArray(data, 3).map(chunk => [
@@ -92,6 +91,7 @@ var base64url = {
 // Hash-Based Message Authentication Code
 // This generates a secure hash based on the key.
 function hmac(key) {
+    // key = mzcc.rawToJWK(key);
     this.keyPromise = webCrypto.importKey(
         'raw',
         key,

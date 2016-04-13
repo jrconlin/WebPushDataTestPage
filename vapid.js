@@ -4,16 +4,12 @@
 
 'use strict';
 
-var webCrypto = window.crypto.subtle;
-
-function ord(c){
-    /* return an ordinal for a character */
-    return c.charCodeAt(0);
-}
-
-function chr(c){
-    /* return a character for a given ordinal */
-    return String.fromCharCode(c);
+try {
+    if (webCrypto === undefined) {
+        webCrypto = window.crypto.subtle;
+    }
+} catch (e) {
+    var webCrypto = window.crypto.subtle;
 }
 
 var vapid = {
@@ -54,41 +50,8 @@ var vapid = {
            })
            .catch(fail => {
                console.error(this.lang.errs.ERR_VAPID_KEY, fail);
+               throw(fail);
                });
-    },
-
-    _str_to_array: function(str) {
-        /* convert a string into a ByteArray
-         *
-         * TextEncoders would be faster, but have a habit of altering
-         * byte order
-         */
-        let split = str.split("");
-        let reply = new Uint8Array(split.length);
-        for (let i in split) {
-            reply[i] = String.charCodeAt(split[i]);
-        }
-        return reply;
-    },
-
-    _array_to_str: function(array) {
-        /* convert a ByteArray into a string
-         */
-        return String.fromCharCode.apply(null, new Uint8Array(array));
-    },
-
-    toUrlBase64: function(data) {
-        /* Convert a binary array into a URL safe base64 string */
-        return btoa(data)
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_");
-    },
-
-    fromUrlBase64: function(data) {
-        /* return a binary array from a URL safe base64 string */
-        return this._str_to_array(atob(data
-                                       .replace(/\-/g, "+")
-                                       .replace(/\_/g, "/")));
     },
 
     /* A fully featured DER library is available at
@@ -104,29 +67,29 @@ var vapid = {
         return webCrypto.exportKey("jwk", this._private_key)
             .then(k => {
                 // verifying key
-                let xv = String.fromCharCode.apply(null, this.fromUrlBase64(k.x));
-                let yv = String.fromCharCode.apply(null, this.fromUrlBase64(k.y));
+                let xv = mzcc.fromUrlBase64(k.x);
+                let yv = mzcc.fromUrlBase64(k.y);
                 // private key
-                let dv = String.fromCharCode.apply(null, this.fromUrlBase64(k.d));
+                let dv = mzcc.fromUrlBase64(k.d);
 
                 // verifying key (public)
                 let vk = '\x00\x04' + xv + yv;
                 // \x02 is integer
                 let int1 = '\x02\x01\x01'; // integer 1
                 // \x04 is octet string
-                let dvstr = '\x04' + chr(dv.length) + dv;
+                let dvstr = '\x04' + mzcc.chr(dv.length) + dv;
                 let curve_oid = "\x06\x08" +
                     "\x2a\x86\x48\xce\x3d\x03\x01\x07";
                 // \xaX is a construct, low byte is order.
-                let curve_oid_const = '\xa0' + chr(curve_oid.length) +
+                let curve_oid_const = '\xa0' + mzcc.chr(curve_oid.length) +
                     curve_oid;
                 // \x03 is a bitstring
-                let vk_enc = '\x03' + chr(vk.length) + vk;
-                let vk_const = '\xa1' + chr(vk_enc.length) + vk_enc;
+                let vk_enc = '\x03' + mzcc.chr(vk.length) + vk;
+                let vk_const = '\xa1' + mzcc.chr(vk_enc.length) + vk_enc;
                 // \x30 is a sequence start.
                 let seq = int1 + dvstr + curve_oid_const + vk_const;
-                let rder = "\x30" + chr(seq.length) + seq;
-                return this.toUrlBase64(rder);
+                let rder = "\x30" + mzcc.chr(seq.length) + seq;
+                return mzcc.toUrlBase64(rder);
             })
             .catch(err => console.error(err))
     },
@@ -136,8 +99,8 @@ var vapid = {
         return webCrypto.exportKey("jwk", this._public_key)
             .then(k => {
                 // raw keys always begin with a 4
-                let xv = this.fromUrlBase64(k.x);
-                let yv = this.fromUrlBase64(k.y);
+                let xv = mzcc._strToArray(mzcc.fromUrlBase64(k.x));
+                let yv = mzcc._strToArray(mzcc.fromUrlBase64(k.y));
 
                 let point = "\x00\x04" +
                     String.fromCharCode.apply(null, xv) +
@@ -147,24 +110,31 @@ var vapid = {
                 let prefix = "\x30\x13" +  // sequence + length
                     "\x06\x07" + "\x2a\x86\x48\xce\x3d\x02\x01" +
                     "\x06\x08" + "\x2a\x86\x48\xce\x3d\x03\x01\x07"
-                let encPoint = "\x03" + chr(point.length) + point
-                let rder = "\x30" + chr(prefix.length + encPoint.length) +
+                let encPoint = "\x03" + mzcc.chr(point.length) + point
+                let rder = "\x30" + mzcc.chr(prefix.length + encPoint.length) +
                     prefix + encPoint;
-                let der = this.toUrlBase64(rder);
+                let der = mzcc.toUrlBase64(rder);
                 return der;
             });
     },
 
     export_public_raw: function() {
-        return webCrypto.exportKey('raw', this._public_key)
+        // Sadly. chrome doesn't yet support "raw" format.
+        return webCrypto.exportKey('jwk', this._public_key)
             .then( key => {
-                return this.toUrlBase64(this._array_to_str(key));
+                return mzcc.toUrlBase64("\x04" +
+                    mzcc.fromUrlBase64(key.x) +
+                    mzcc.fromUrlBase64(key.y))
+            })
+            .catch(err => {
+                console.error("public raw format", err);
+                throw err;
             })
     },
 
     import_public_raw: function(raw) {
         if (typeof(raw) == "string") {
-            raw = this.fromUrlBase64(raw);
+            raw = mzcc._strToArray(mzcc.fromUrlBase64(raw));
         }
         let err = new Error(this.lang.errs.ERR_PUB_KEY);
 
@@ -174,8 +144,8 @@ var vapid = {
         }
 
         raw= raw.slice(-64);
-        let x = this.toUrlBase64(String.fromCharCode.apply(null, raw.slice(0,32)));
-        let y = this.toUrlBase64(String.fromCharCode.apply(null, raw.slice(32,64)));
+        let x = mzcc.toUrlBase64(String.fromCharCode.apply(null, raw.slice(0,32)));
+        let y = mzcc.toUrlBase64(String.fromCharCode.apply(null, raw.slice(32,64)));
 
         // Convert to a JWK and import it.
         let jwk = {
@@ -199,7 +169,7 @@ var vapid = {
          * Returns a promise containing the public key.
          */
         if (typeof(derArray) == "string") {
-            derArray = this.fromUrlBase64(derArray);
+            derArray = mzcc._strToArray(mzcc.fromUrlBase64(derArray));
         }
         /* Super light weight public key import function */
         let err = new Error(this.lang.errs.ERR_PUB_D_KEY);
@@ -214,9 +184,9 @@ var vapid = {
             throw err;
         }
         // pubkey offset starts at byte 25
-        let x = this.toUrlBase64(String.fromCharCode
+        let x = mzcc.toUrlBase64(String.fromCharCode
                 .apply(null, derArray.slice(27, 27+32)));
-        let y = this.toUrlBase64(String.fromCharCode
+        let y = mzcc.toUrlBase64(String.fromCharCode
                 .apply(null, derArray.slice(27+32, 27+64)));
 
         // Convert to a JWK and import it.
@@ -252,25 +222,26 @@ var vapid = {
             }
         })
         let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
-        let headStr = btoa(JSON.stringify({typ:"JWT",alg:"ES256"}));
-        let claimStr = btoa(JSON.stringify(claims));
+        let headStr = mzcc.toUrlBase64(
+            JSON.stringify({typ:"JWT",alg:"ES256"}));
+        let claimStr = mzcc.toUrlBase64(
+            JSON.stringify(claims));
         let content = headStr + "." + claimStr;
-        let signatory = this._str_to_array(content);
+        let signatory = mzcc._strToArray(content);
         return webCrypto.sign(
             alg,
             this._private_key,
             signatory)
             .then(signature => {
-                let sig = this.toUrlBase64(this._array_to_str(signature));
+                let sig = mzcc.toUrlBase64(mzcc._arrayToStr(signature));
                 /* The headers consist of the constructed JWT as the "authorization"
                  * and the raw Public key as the p256ecdsa element of "Crypto-Key"
                  * Note that Crypto-Key can contain many elements, separated by a ","
                  * You may need to append this value to an existing "Crypto-Key"
                  * header value.
                  */
-                return webCrypto.exportKey('raw', this._public_key)
-                    .then( key => {
-                        let pubKey = this.toUrlBase64(this._array_to_str(key));
+                return this.export_public_raw()
+                    .then( pubKey => {
                         return {
                             authorization: "Bearer " + content + "." + sig,
                             "crypto-key": "p256ecdsa=" + pubKey,
@@ -286,10 +257,10 @@ var vapid = {
     validate: function(string) {
         /* Sign the token for the developer Dashboard */
         let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
-        let t2v = this._str_to_array(string);
+        let t2v = mzcc._strToArray(string);
         return webCrypto.sign(alg, this._private_key, t2v)
             .then(signed => {
-                let sig = this.toUrlBase64(this._array_to_str(signed));
+                let sig = mzcc.toUrlBase64(mzcc._arrayToStr(signed));
                 return sig;
             });
     },
@@ -297,8 +268,8 @@ var vapid = {
     validateCheck: function(sig, string) {
         /* verify a given signature string matches */
         let alg = { name: "ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
-        let vsig = this.fromUrlBase64(sig);
-        let t2v = this.fromUrlBase64(string);
+        let vsig = mzcc._strToArray(mzcc.fromUrlBase64(sig));
+        let t2v = mzcc._strToArray(mzcc.fromUrlBase64(string));
         return webCrypto.verify(alg, this._public_key, vsig, t2v);
     },
 
@@ -342,17 +313,17 @@ var vapid = {
         let signature;
         let key;
         try {
-            signature = this.fromUrlBase64(items[2]);
+            signature = mzcc._strToArray(mzcc.fromUrlBase64(items[2]));
         } catch (err) {
             throw new Error(this.lang.errs.ERR_VERIFY_SG + err.message);
         }
         try {
-            key = this.fromUrlBase64(items[1]);
+            key = mzcc._strToArray(mzcc.fromUrlBase64(items[1]));
         } catch (err) {
             throw new Error(this.lang.errs.ERR_VERIFY_KE + err.message);
         }
         let content = items.slice(0,2).join('.');
-        let signatory = this._str_to_array(content);
+        let signatory = mzcc._strToArray(content);
         return webCrypto.verify(
             alg,
             this._public_key,
@@ -360,8 +331,10 @@ var vapid = {
             signatory)
            .then(valid => {
                if (valid) {
-                   return JSON.parse(String.fromCharCode
-                                        .apply(null, this.fromUrlBase64(items[1])))
+                   return JSON.parse(
+                        String.fromCharCode.apply(
+                            null,
+                            mzcc._strToArray(mzcc.fromUrlBase64(items[1]))))
                }
                throw new Error(this.lang.errs.ERR_SIGNATURE);
            })
