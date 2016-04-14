@@ -301,6 +301,12 @@
   <script>
 'use strict';
 
+document.body.onload = function() {
+    if (window.location.protocol.replace(/:/, '').toLowerCase() === 'http') {
+        window.location.href = window.location.href.replace(/^http:/i, 'https:');
+    }
+};
+
 function show_ok(state, msg) {
     let o = document.getElementById("success");
     if (msg == false) {
