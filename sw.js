@@ -77,7 +77,7 @@ self.addEventListener('pushsubscriptionchange', function(event) {
               console.error("Service worker couldn't send message: ", err);
            })
         );
-    
+
 });
 
 self.addEventListener('registration', function(event){
@@ -90,6 +90,8 @@ self.addEventListener('install', function(event){
     // The serivce worker has been loaded and installed.
     // The browser aggressively caches the service worker code.
     console.log("sw Install: ", JSON.stringify(event));
+    // This replaces currently active service workers with this one
+    // making this service worker a singleton.
     event.waitUntil(self.skipWaiting());
     console.log("sw Installed: ", JSON.stringify(event));
 
@@ -98,6 +100,8 @@ self.addEventListener('install', function(event){
 self.addEventListener('activate', function(event){
     // The service worker is now Active and functioning.
     console.log("sw Activate : ", JSON.stringify(event));
+    // Again, ensure that this is the only active service worker for this
+    // page.
     event.waitUntil(self.clients.claim());
     console.log("sw Activated: ", JSON.stringify(event));
     navigator.serviceWorker

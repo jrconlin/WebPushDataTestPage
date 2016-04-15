@@ -4,7 +4,11 @@
 
 'use strict';
 
-var webCrypto = window.crypto.subtle;
+try {
+    webCrypto;
+} catch (e) {
+    var webCrypto = window.crypto.subtle;
+}
 
 var vapid = {
     /* English:US */

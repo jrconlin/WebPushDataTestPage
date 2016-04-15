@@ -29,7 +29,11 @@
   // The second part is the actual message encryption using the agreed key
   // created by the ECDH dance.
   //
-  var webCrypto = g.crypto.subtle;
+  try {
+      webCrypto;
+  } catch (e) {
+    var webCrypto = g.crypto.subtle;
+  }
 
   // Per the WebPush API, there are known token values that are used for some
   // portions of the Nonce creations.
