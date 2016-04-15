@@ -29,14 +29,18 @@
   // The second part is the actual message encryption using the agreed key
   // created by the ECDH dance.
   //
-  var webCrypto = g.crypto.subtle;
+  try {
+      webCrypto;
+  } catch (e) {
+    var webCrypto = g.crypto.subtle;
+  }
 
   // Per the WebPush API, there are known token values that are used for some
   // portions of the Nonce creations.
   var ENCRYPT_INFO = new TextEncoder('utf-8').encode(
      "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
- var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
+  var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
 
   function textWrap(text, limit) {
     /* wrap text to a limit by injecting newlines

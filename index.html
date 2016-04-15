@@ -15,17 +15,16 @@
     (also known as Web-Push) provide the ability for Application Servers
     (App Servers) to send up to 4 Kilobites of data to applications.
     In order to do this safely, the data needs to be encrypted so that the
-    Push Servers can't easily read it. To make sure that data is properly
-    encrypted, the remote browser will decrypt it and hand your application
-    the data.</p>
+    Push Servers can't easily read it. The browser will decrypt the data
+    before handing it to your web app.</p>
     <p>Unfortunately, such security comes at a cost. The method of encryption
     used can be a bit tricky and confusing to folks that may not be intimately
     familiar with how this should work. This page attempts to provide insight
     into how the encryption should work. It's a "known working case" that
     tries to show all the moving pieces so that library authors or application
     developers can get started.</p>
-    <p>This page will create a live Web Push connection to itself. You can
-    use it to test your code or library. It may be useful to open the
+    <p>This page will create a Web Push subscription and send messages to itself.
+    You can use it to test your code or library. It may be useful to open the
     Web Debugging Console (Ctrl+Shift+K on Firefox) and note the messages
     being generated in the console log.</p>
     <p>If you've not already done so, I strongly recommend you consult
@@ -46,7 +45,7 @@
     </div>
     <div class="section">
     <h2>1. Get the Subscription:</h2>
-    <p>These elements are provided to the WebApp from the
+    <p>These elements are provided to the web app from the
        <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
 
     call. These values should be relayed directly to your back-end App
@@ -61,8 +60,8 @@
         the URI where you
         should POST the encrypted message content. To make things easier,
         the page will fetch one for itself. Feel free to replace this with
-        a different endpoint if you wish and press the "Send Data" button below
-        to try it out.
+        a different endpoint and key if you wish, and press the "Send Data"
+        button below to try it out.
     </div>
     <textarea name="endpoint" value="http://example.com/" class="value endpoint"></textarea>
     </div>
@@ -74,25 +73,25 @@
     <textarea class="value receiverKey" name="receiverKey" ></textarea>
     </div>
     <div id="authKey">
-        <div class="title">Auth Key</div>
-        <div class="description">Auth Key is provided by the browser as
-            <code>subscription.getkey('auth')</code> and is extra data for the
+        <div class="title">Authentication Secret</div>
+        <div class="description">The auth secret is provided by the browser as
+            <code>subscription.getKey('auth')</code> and is extra data for the
             HKDF function, which generates the Shared Key</div>
         <div name="authKey" class="value authKey"></div>
     </div>
     </div>
 <div class="section">
     <h2>2. Add VAPID data</h2>
-    <p>VAPID is an optional header block that allows feeds to "self identify". It consists of a
-    <a href="https://jwt.io">JSON Web Token</a> that contains claims that identify the sender.
+    <p>VAPID is an optional header block that allows senders to "self identify". It consists of a
+    <a href="https://jwt.io">JSON Web Token</a> that contains identification claims.
     <div id="vapidClaims">
         <div class="title">VAPID claims</div>
         <div>
             <label for="aud"><b>aud:</b> Audience: The URL for your site</label><br>
             <input class="item" name="aud" type="url" autocomplete="url" placeholder="http://example.com"><br>
-            <label for="sub"><b>sub:</b> Subscriber: The contact email address for issues regarding this feed</label><br>
+            <label for="sub"><b>sub:</b> Subscriber: The contact email address for the owner of this subscription</label><br>
             <input class="item" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
-            <label for="exp"><b>exp:</b> Expiration: When this claim expires (Max is 24 hours from now)</label><br>
+            <label for="exp"><b>exp:</b> Expiration: When this token expires (Max is 24 hours from now)</label><br>
             <input class="item" name="exp" id="vapid_exp" disabled=true><br>
         </div>
         <div id="vapidError" class="errMsg"></div>
@@ -100,24 +99,25 @@
     <div class="ctrl">Optionally <button id="addVapid">Add VAPID</button></div>
     <div id="vapidHeaders">
         <div class="title">VAPID Headers</div>
-        <div class="description">Add these headers to your outbound request. The Headers consist "Authorization"
-            (a JWT containing the <code>claims</code>) and the "Crypto-Key"/ "p256ecdsa" element (containing the
-            "raw" public key used to generate the signature for the "Authorization". Note that "Crypto-Key" may
-            contain multiple elements separated by a comma. If you specify VAPID headers, we'll append them to
-            the Crypto-Key header.</div>
+        <div class="description">Add these headers to your outbound request. The headers are "Authorization"
+            and "Crypto-Key". "Authorization" is a JWT containing the signed <code>claims</code>. "Crypto-Key"
+            contains a "p256ecdsa" element that specifies the "raw" public key used to verify the JWT signature.
+            Note that "Crypto-Key" may contain multiple elements separated by a comma. If you specify VAPID
+            headers, we'll append them to the Crypto-Key header.</div>
         <div name="vapidHeaders" class="value"></div>
     </div>
     <div id="vapidPrivate">
         <div class="title">VAPID private key</div>
         <div class="description">Normally, you retain your VAPID key pair on your server, and reuse the pair for all
-           subsequent calls. You can create a new VAPID key pair at any time. Be advised that things like the dashboard
-           will not associate old pair data with a new key. In essence, the new key is a new ID for you.</div>
+           subsequent calls. You can create a new VAPID key pair at any time, but things like the dashboard won't
+           associate information for the old key pair with a new one. In essence, the new key is a new ID for you.</div>
        <div name="vapidPrivate" class="value"></div>
    </div>
     <div id="vapidPublic">
         <div class="title">VAPID public key</div>
-        <div class="description">VAPID <b><i>always</i></b> uses it's own set of keys. You sign with the private half
-            and include the public key with the <code>Crypto-Key</code> header. This key is in ASN.1 DER format.</div>
+        <div class="description">VAPID <b><i>always</i></b> uses its own set of keys. You sign with the private half
+            and include the public key with the <code>Crypto-Key</code> header. This key is in the "uncompressed" or
+            "raw" key point format.</div>
         <div name="vapidPublic" class="value"></div>
     <div id="pushDashboard">
         <div class="title">Push Dashboard</div>
@@ -135,10 +135,10 @@
 </div>
     <div class="section">
     <h2>3. Generate the Content</h2>
-    <p>These are normally the things you enter per encryption request.</p>
+    <p>These are normally the things you enter for each encrypted push message.</p>
     <div id="salt">
     <div class="title">Salt:</div>
-    <div class="description">The salt is an arbitrary array of bytes the
+    <div class="description">The salt is an array of 16 random bytes that the
         App Server generates for each outbound encrypted request.
         This should change for every request, but it can be helpful for
         library authors to see the same salt value.</div>
@@ -226,7 +226,7 @@
         <div id="iv">
             <div class="title">Initialization Vector:</div>
             <div class="description">The AES-GCM Initialization Vector.
-            This is a bit more complex, as it's comprised of a known chunk
+            This is a bit more complex, as it comprises a known chunk
             created through the same KDF that created the <span class="nonce">
             nonce</span>, as well the index number of the chunk of data
             we're encoding.</div>
@@ -301,14 +301,20 @@
   <script>
 'use strict';
 
+<<<<<<< HEAD
 
 /*
+=======
+>>>>>>> dd03096dca53310d9645072abf9d0c30adede6a9
 document.body.onload = function() {
     if (window.location.protocol.replace(/:/, '').toLowerCase() === 'http') {
         window.location.href = window.location.href.replace(/^http:/i, 'https:');
     }
 };
+<<<<<<< HEAD
 */
+=======
+>>>>>>> dd03096dca53310d9645072abf9d0c30adede6a9
 
 function show_ok(state, msg) {
     let o = document.getElementById("success");
