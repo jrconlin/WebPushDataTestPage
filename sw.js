@@ -61,8 +61,8 @@ self.addEventListener('pushsubscriptionchange', function(event) {
     event.waitUntil(
         self.clients.matchAll()
            .then(clientList => {
-              let sent = false;
-              console.debug("Service worker found clients",
+             let sent = false;
+             console.debug("Service worker found clients",
                     JSON.stringify(clients));
              clientList.forEach(client => {
                  console.debug("Service worker sending to client...", client);

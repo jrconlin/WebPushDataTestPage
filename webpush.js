@@ -30,7 +30,9 @@
   // created by the ECDH dance.
   //
   try {
-      webCrypto;
+      if (webCrypto === undefined) {
+        webCrypto = g.crypto.subtle;
+      }
   } catch (e) {
     var webCrypto = g.crypto.subtle;
   }
