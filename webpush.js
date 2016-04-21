@@ -31,7 +31,7 @@
   //
   try {
       if (webCrypto === undefined) {
-        webCrypto = g.crypto.subtle;
+          webCrypto = g.crypto.subtle;
       }
   } catch (e) {
     var webCrypto = g.crypto.subtle;
@@ -42,7 +42,7 @@
   var ENCRYPT_INFO = new TextEncoder('utf-8').encode(
      "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
- var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
+  var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
 
   function textWrap(text, limit) {
     /* wrap text to a limit by injecting newlines

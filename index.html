@@ -104,7 +104,7 @@
             contains a "p256ecdsa" element that specifies the "raw" public key used to verify the JWT signature.
             Note that "Crypto-Key" may contain multiple elements separated by a comma. If you specify VAPID
             headers, we'll append them to the Crypto-Key header.</div>
-        <div name="vapidHeaders" class="value"></div>
+        <div name="vapidHeaders" class="vapidHeader value"></div>
     </div>
     <div id="vapidPrivate">
         <div class="title">VAPID private key</div>
@@ -379,7 +379,7 @@ function register() {
     })
     .catch(function(err) {
         console.error("Registration Error:", err);
-        let msg = "Could not start.<br> ";
+        let msg = "Could not start.<br> " + err.toString();
         show_err(msg);
     });
 }
@@ -469,7 +469,7 @@ function subscribe() {
             return
         }
         console.error("Registration Error:", err);
-        let msg = "Could not start.<br> ";
+        let msg = "Could not start.<br> " + err;
         show_err(msg);
     });
 };

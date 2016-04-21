@@ -16,13 +16,14 @@ var mzcc = {
         */
         return btoa(data)
             .replace(/\+/g, "-")
-            .replace(/\//g, "_");
+            .replace(/\//g, "_")
+            .replace(/=/g, "")
     },
 
     fromUrlBase64: function(data) {
         /* return a binary array from a URL safe base64 string
         */
-        return atob(data
+        return atob((data + "====".substr(data.length % 4))
             .replace(/\-/g, "+")
             .replace(/\_/g, "/"));
     },

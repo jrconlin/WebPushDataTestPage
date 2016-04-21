@@ -5,7 +5,9 @@
 'use strict';
 
 try {
-    webCrypto;
+    if (webCrypto === undefined) {
+        webCrypto = window.crypto.subtle;
+    }
 } catch (e) {
     var webCrypto = window.crypto.subtle;
 }
@@ -220,8 +222,10 @@ var vapid = {
             }
         })
         let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
-        let headStr = btoa(JSON.stringify({typ:"JWT",alg:"ES256"}));
-        let claimStr = btoa(JSON.stringify(claims));
+        let headStr = mzcc.toUrlBase64(
+            JSON.stringify({typ:"JWT",alg:"ES256"}));
+        let claimStr = mzcc.toUrlBase64(
+            JSON.stringify(claims));
         let content = headStr + "." + claimStr;
         let signatory = mzcc._strToArray(content);
         return webCrypto.sign(

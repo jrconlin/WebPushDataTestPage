@@ -16,8 +16,8 @@ code {font: 90% "courier new",courier,monospace;}
 #vapidClaims label b{font-weight:bold; display:inline-block; min-width:3em;}
 .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,200,200,50);padding:5px;}
 .endpoint {color:#33F;}
-.local_key {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
-.remote_key {color:#005444;font-weight:bold;text-decoration:double-underline solid #CCC;}
+.senderKey {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
+.receiverKey {color:#005444;font-weight:bold;text-decoration:double-underline solid #CCC;}
 .salt {color:#008700;font-weight:bold;text-decoration:underline wavy #CCC;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;text-indent:-3em;}
@@ -32,4 +32,4 @@ code {font: 90% "courier new",courier,monospace;}
 #fakeNotif img {position:absolute;top:1.5em;left:.5em;}
 #fakeNotif .msg {position:absolute;top:1.5em;left:90px;}
 #fakeNotif .via {position:absolute;bottom:0;left:90px;font-size:70%;color:#888;}
-
+.vapidHeader {color:#cc00cc;}
