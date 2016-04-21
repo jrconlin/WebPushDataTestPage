@@ -378,7 +378,7 @@ function register() {
     })
     .catch(function(err) {
         console.error("Registration Error:", err);
-        let msg = "Could not start.<br> ";
+        let msg = "Could not start.<br> " + err.toString();
         show_err(msg);
     });
 }
