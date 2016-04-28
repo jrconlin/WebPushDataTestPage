@@ -23,12 +23,9 @@ function output(target, value) {
 function get(target) {
     try {
         let t = document.getElementsByName(target)[0];
-        if (t.attributes.hasOwnProperty('value')) {
-            return t.value;
-        }
-        return t.innerHTML;
+        return t.value;
     } catch (TypeError) {
-        return null;
+        return t.innerHTML;
     }
 
 }
