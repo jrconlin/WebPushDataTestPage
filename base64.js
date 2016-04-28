@@ -21,8 +21,8 @@ function output(target, value) {
 }
 
 function get(target) {
+    let t = document.getElementsByName(target)[0];
     try {
-        let t = document.getElementsByName(target)[0];
         return t.value;
     } catch (TypeError) {
         return t.innerHTML;
