@@ -153,8 +153,8 @@ var vapid = {
             ext: true,
             key_ops: ["verify"],
             kty: "EC",
-            x: x,
-            y, y
+            x: x.replace("=", ""),
+            y: y.replace("=", ""),
         };
 
         return webCrypto.importKey('jwk', jwk, 'ECDSA', true, ["verify"])
@@ -195,8 +195,8 @@ var vapid = {
             ext: true,
             key_ops: ["verify"],
             kty: "EC",
-            x: x,
-            y, y
+            x: x.replace("=", ""),
+            y: y.replace("=", ""),
         };
 
         return webCrypto.importKey('jwk', jwk, 'ECDSA', true, ["verify"])
@@ -234,11 +234,12 @@ var vapid = {
             signatory)
             .then(signature => {
                 let sig = mzcc.toUrlBase64(mzcc._arrayToStr(signature));
-                /* The headers consist of the constructed JWT as the "authorization"
-                 * and the raw Public key as the p256ecdsa element of "Crypto-Key"
-                 * Note that Crypto-Key can contain many elements, separated by a ","
-                 * You may need to append this value to an existing "Crypto-Key"
-                 * header value.
+                /* The headers consist of the constructed JWT as the
+                 * "authorization" and the raw Public key as the p256ecdsa
+                 * element of "Crypto-Key"
+                 * Note that Crypto-Key can contain many elements, separated by
+                 * a "," You may need to append this value to an existing
+                 * "Crypto-Key" header value.
                  */
                 return this.export_public_raw()
                     .then( pubKey => {
@@ -276,7 +277,8 @@ var vapid = {
     verify: function(token, public_key=null) {
         /* Verify a VAPID token.
          *
-         * Token is the Authorization Header, Public Key is the Crypto-Key header.
+         * Token is the Authorization Header, Public Key is the Crypto-Key
+         * header.
         */
 
         // Ideally, just the bearer token, Cheat a little to be nice to the dev.
