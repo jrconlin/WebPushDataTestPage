@@ -14,10 +14,12 @@ code {font: 90% "courier new",courier,monospace;}
 .error {color:red; border: 1px solid red;}
 .errMsg {color:red;}
 #vapidClaims label b{font-weight:bold; display:inline-block; min-width:3em;}
+.vapidHeader {color:#080 !important;}
 .value {font:100% "courier new",courier,monospace;background-color:#FEFEFE;width:95%;color:#333;margin-bottom:2em;white-space:pre-wrap;word-break:break-all;box-shadow: 5px 5px 5px rgba(200,200,200,50);padding:5px;}
 .endpoint {color:#33F;}
-.local_key {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
-.remote_key {color:#005444;font-weight:bold;text-decoration:double-underline solid #CCC;}
+.senderKey {color:#005444;font-weight:bold;text-decoration:underline solid #CCC;}
+.receiverKey {color:#005444;font-weight:bold;text-decoration:double-underline solid #CCC;}
+.authKey{color:#005444;font-weight:bold;font-style:italic;}
 .salt {color:#008700;font-weight:bold;text-decoration:underline wavy #CCC;}
 .nonce {color:purple;font-weight:bold;}
 .title {font-weight:bold;display:block-inline;width:10em;text-indent:-3em;}

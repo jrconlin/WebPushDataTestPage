@@ -2,50 +2,63 @@
 <html>
   <head>
       <meta charset="utf-8" />
-    <title>Web Push Data Encryption Test Page</title>
+    <title>Web Push: Data Encryption Test Page</title>
     <link href="style.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
   </head>
   <body>
-  <h1>Web Push Data Encryption Test Page</h1>
+  <h1>Web Push: Data Encryption Test Page</h1>
     <div class="errMsg hidden"></div>
     <div class="intro">
     <h2>Introduction</h2>
     <p>The <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API">Push APIs</a>
-    (also known as Web-Push) provide the ability for Application Servers
-    (App Servers) to send up to 4 Kilobites of data to applications.
-    In order to do this safely, the data needs to be encrypted so that the
-    Push Servers can't easily read it. The browser will decrypt the data
-    before handing it to your web app.</p>
-    <p>Unfortunately, such security comes at a cost. The method of encryption
-    used can be a bit tricky and confusing to folks that may not be intimately
-    familiar with how this should work. This page attempts to provide insight
-    into how the encryption should work. It's a "known working case" that
-    tries to show all the moving pieces so that library authors or application
-    developers can get started.</p>
-    <p>This page will create a Web Push subscription and send messages to itself.
-    You can use it to test your code or library. It may be useful to open the
+    (also known as Web Push) provide the ability for Application Servers
+    (App Servers) to send up to 4 Kilobites of data to applications (apps).
+    In order to do this securely, that data would first need to be encrypted
+    so that it wouldn't be exposed to the push servers in transit. The browser
+    decrypts the data later before delivering it to your app.</p>
+    <p>Unfortunately, implementing this kind of security is complicated and
+    encryption may be confusing to those not familiar with it.</p>
+    <h2>Purpose</h2>
+    <p>This page attempts to transparently show the keys and values used to
+    encrypt data for delivery by a push service. It also provides a "working
+    example" of how developers might successfully implement encryption of push
+    notifications for their application or library. Following the steps below,
+    you can see all the "moving parts" in one place and get started adding
+    encryption to your own App Server or library.</p>
+    <h2>Pre-requisites</h2>
+    <p>This page will presume you're familiar with using push notifications
+    and want to start using the experimental encrypted data payloads.
+    <i>NOTE:</i> This feature is currently <u>experimental</u>, there is
+    <u>very limited library support!</u></p>
+    <p>Before getting started, I strongly recommend you first consult:
+    <a href="https://developer.mozilla.org/docs/Web/API/Push_API/Using_the_Push_API">Using
+    the Push API</a>on MDN (the Mozilla Developer Network). This will help
+    explain how push basic notifications function without data payloads.</p>
+    <h2>Getting Started</h2>
+    <p>Emulating an App Server, this page allows you to do the following:
+    <ol>
+        <li>Register a Service Worker</li>
+        <li>Create a Web Push Subscription</li>
+        <li>Generate some dummy content</li>
+        <li>Generate a local encryption key</li>
+        <li>Encrypt some dummy content</li>
+        <li>Add optional VAPID data</li>
+        <li>Send the message</li>
+    </ol>
+    <p><i>NOTE:</i> It may be useful to open the
     Web Debugging Console (Ctrl+Shift+K on Firefox) and note the messages
     being generated in the console log.</p>
-    <p>If you've not already done so, I strongly recommend you consult
-    <a href="https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Using_the_Push_API">Using
-    the Push API</a> on the Mozilla Developer Network.
-    This will help explain what push notifications are and how to use a simple
-    version that does not contain data.</p>
-    <p>This page will presume you're familiar with using Push notifications
-    and want to start using the experimental encrypted data payloads. Please
-    note that since this feature is currently experimental, there is very
-    limited library support. This page exists to transparently show the
-    keys and values used to successfully encrypt data for delivery.</p>
-    <div id="regSec" class="ctrl hidden">
+</div>
+    <div id="regSec" class="section hidden">
+    <h2>0. Register the Service Worker:</h2>
     First, let's register the service worker, since it's
     not already present.<br>
     <button id="regButton">Register the Service Worker...</button>
     </div>
-    </div>
     <div class="section">
-    <h2>1. Get the Subscription:</h2>
-    <p>These elements are provided to the web app from the
+    <h2>1. Create a Web PushSubscription:</h2>
+    <p>These elements are provided to your web app from the
        <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/PushManager">PushManager</a></code>.
 
     call. These values should be relayed directly to your back-end App
@@ -80,61 +93,8 @@
         <div name="authKey" class="value authKey"></div>
     </div>
     </div>
-<div class="section">
-    <h2>2. Add VAPID data</h2>
-    <p>VAPID is an optional header block that allows senders to "self identify". It consists of a
-    <a href="https://jwt.io">JSON Web Token</a> that contains identification claims.
-    <div id="vapidClaims">
-        <div class="title">VAPID claims</div>
-        <div>
-            <label for="aud"><b>aud:</b> Audience: The URL for your site</label><br>
-            <input class="item" name="aud" type="url" autocomplete="url" placeholder="http://example.com"><br>
-            <label for="sub"><b>sub:</b> Subscriber: The contact email address for the owner of this subscription</label><br>
-            <input class="item" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
-            <label for="exp"><b>exp:</b> Expiration: When this token expires (Max is 24 hours from now)</label><br>
-            <input class="item" name="exp" id="vapid_exp" disabled=true><br>
-        </div>
-        <div id="vapidError" class="errMsg"></div>
-    </div>
-    <div class="ctrl">Optionally <button id="addVapid">Add VAPID</button></div>
-    <div id="vapidHeaders">
-        <div class="title">VAPID Headers</div>
-        <div class="description">Add these headers to your outbound request. The headers are "Authorization"
-            and "Crypto-Key". "Authorization" is a JWT containing the signed <code>claims</code>. "Crypto-Key"
-            contains a "p256ecdsa" element that specifies the "raw" public key used to verify the JWT signature.
-            Note that "Crypto-Key" may contain multiple elements separated by a comma. If you specify VAPID
-            headers, we'll append them to the Crypto-Key header.</div>
-        <div name="vapidHeaders" class="value"></div>
-    </div>
-    <div id="vapidPrivate">
-        <div class="title">VAPID private key</div>
-        <div class="description">Normally, you retain your VAPID key pair on your server, and reuse the pair for all
-           subsequent calls. You can create a new VAPID key pair at any time, but things like the dashboard won't
-           associate information for the old key pair with a new one. In essence, the new key is a new ID for you.</div>
-       <div name="vapidPrivate" class="value"></div>
-   </div>
-    <div id="vapidPublic">
-        <div class="title">VAPID public key</div>
-        <div class="description">VAPID <b><i>always</i></b> uses its own set of keys. You sign with the private half
-            and include the public key with the <code>Crypto-Key</code> header. This key is in the "uncompressed" or
-            "raw" key point format.</div>
-        <div name="vapidPublic" class="value"></div>
-    <div id="pushDashboard">
-        <div class="title">Push Dashboard</div>
-        <div class="description">
-          <p>To monitor your push messages, you will add the VAPID public key to your app in <a href="https://dev-dashboard.deis.dev.mozaws.net/en/" target="_blank">the push dashboard</a>. To validate you own the app, you will also need to sign a token with your VAPID private key, and paste the signed token back into the dashboard.</p>
-          <p>If you are using this page to test, you can paste this test VAPID public key into the dashboard:</p>
-          <div name="vapidPublicForDashboard" class="value"></div>
-          <p>Then paste the app token here to get the signed token value:</p>
-          <input class="item" name="push_app_token" id="push_app_token">
-          <button id="signToken">Sign token</button>
-          <div class="value" name="signedToken"></div>
-        </div>
-    </div>
-  </div>
-</div>
     <div class="section">
-    <h2>3. Generate the Content</h2>
+    <h2>2. Generate the Content</h2>
     <p>These are normally the things you enter for each encrypted push message.</p>
     <div id="salt">
     <div class="title">Salt:</div>
@@ -167,7 +127,7 @@
     </div>
 </div>
 <div class="section reset">
-    <h2>4. Generate the Local Key:</h2>
+    <h2>3. Generate the Local Encryption Key:</h2>
     <p>These items (plus the <span class="salt">Salt</span>) are unique per
     encryption, and usually generated "on the fly" by the various algorithms.
     Key negotiation requires the generation of a <b class="senderKey">Local Key</b>.
@@ -197,12 +157,12 @@
     </div>
 </div>
 <div class="section reset">
-    <h2>5. Encrypt the Message:</h2>
+    <h2>4. Encrypt the Message:</h2>
     <p>These items are the various intermediary and final elements used to
     generate the encryption key.</p>
     <div id="ikm">
         <div class="title">Shared Key:</div>
-        <div class="description">AES-GCM key material derived from the private <b class="senderKey">local key</b> and public <b class="receiverKey">p256dh key</b>. This comes from a <code>WebCrypto.deriveBits</code> call in <code>webpush.js</code></div>
+        <div class="description">AES-GCM key material derived from the private <b class="senderKey">local key</b>, the <span class="authKey">Authentication Secret</span>, and the public <b class="receiverKey">p256dh key</b>. This comes from a <code>WebCrypto.deriveBits</code> call in <code>webpush.js</code></div>
         <div name="ikm" class="value"></div>
     </div>
         <div id="gcmB">
@@ -233,6 +193,59 @@
             <div name="iv" class="value"></div>
         </div>
     </div>
+<div class="section">
+    <h2>5. Add VAPID data</h2>
+    <p>VAPID is an optional header block that allows senders to "self identify". It consists of a
+    <a href="https://jwt.io">JSON Web Token</a> that contains identification claims.
+    <div id="vapidClaims">
+        <div class="title">VAPID claims</div>
+        <div>
+            <label for="aud"><b>aud:</b> Audience: The URL for your site</label><br>
+            <input class="item" name="aud" type="url" autocomplete="url" placeholder="http://example.com"><br>
+            <label for="sub"><b>sub:</b> Subscriber: The contact email address for the owner of this subscription</label><br>
+            <input class="item required" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
+            <label for="exp"><b>exp:</b> Expiration: When this token expires (Max is 24 hours from now)</label><br>
+            <input class="item" name="exp" id="vapid_exp" disabled=true><br>
+        </div>
+        <div id="vapidError" class="errMsg"></div>
+    </div>
+    <div class="ctrl">Optionally <button id="addVapid">Add VAPID</button></div>
+    <div id="vapidHeaders">
+        <div class="title">VAPID Headers</div>
+        <div class="description">Add these headers to your outbound request. The headers are "Authorization"
+            and "Crypto-Key". "Authorization" is a JWT containing the signed <code>claims</code>. "Crypto-Key"
+            contains a "p256ecdsa" element that specifies the "raw" public key used to verify the JWT signature.
+            Note that "Crypto-Key" may contain multiple elements separated by a comma. If you specify VAPID
+            headers, we'll append them to the Crypto-Key header.</div>
+        <div name="vapidHeaders" class="vapidHeader value"></div>
+    </div>
+    <div id="vapidPrivate">
+        <div class="title">VAPID private key</div>
+        <div class="description">Normally, you retain your VAPID key pair on your server, and reuse the pair for all
+           subsequent calls. You can create a new VAPID key pair at any time, but things like the dashboard won't
+           associate information for the old key pair with a new one. In essence, the new key is a new ID for you.</div>
+       <div name="vapidPrivate" class="value"></div>
+   </div>
+    <div id="vapidPublic">
+        <div class="title">VAPID public key</div>
+        <div class="description">VAPID <b><i>always</i></b> uses its own set of keys. You sign with the private half
+            and include the public key with the <code>Crypto-Key</code> header. This key is in the "uncompressed" or
+            "raw" key point format.</div>
+        <div name="vapidPublic" class="value"></div>
+    <div id="pushDashboard">
+        <div class="title">Push Dashboard</div>
+        <div class="description">
+          <p>To monitor your push messages, you will add the VAPID public key to your app in <a href="https://dev-dashboard.deis.dev.mozaws.net/en/" target="_blank">the push dashboard</a>. To validate you own the app, you will also need to sign a token with your VAPID private key, and paste the signed token back into the dashboard.</p>
+          <p>If you are using this page to test, you can paste this test VAPID public key into the dashboard:</p>
+          <div name="vapidPublicForDashboard" class="value"></div>
+          <p>Then paste the app token here to get the signed token value:</p>
+          <input class="item" name="push_app_token" id="push_app_token">
+          <button id="signToken">Sign token</button>
+          <div class="value" name="signedToken"></div>
+        </div>
+    </div>
+  </div>
+</div>
 <div class="section reset">
     <h2>6. Send the Message:</h2>
     <p>These are the outputs. You can cut and paste the <b>Curl</b>
@@ -293,8 +306,10 @@
 <div class="footer">
     <p>Source available on <a href="https://github.com/jrconlin/WebPushDataTestPage">GitHub</a>. Licensed under <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License v.2.0</a></p>
 </div>
+<audio src="firefox.mp3" id="ring" />
   </body>
   <script src="common.js"></script>
+  <script src="der_lite.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script src="vapid.js"></script>
@@ -447,7 +462,7 @@ function subscribe() {
                 }
                 document.getElementById("encrypt").disabled = false;
                 if (window.QA_MODE) {
-                    encr(rkey);
+                    encrypt(rkey);
                 }
                 return subscription_info;
 
@@ -486,7 +501,7 @@ function reset() {
 }
 
 
-function encr(receiverKey) {
+function encrypt(receiverKey, vapid_headers) {
     /* Fetch & fill various fields, attempt to create a message and send
        it to yourself.
     */
@@ -499,6 +514,7 @@ function encr(receiverKey) {
         receiverKey = get("receiverKey");
     }
     let data = get("data");
+    console.debug("receiverKey", receiverKey);
     let rKey = base64url.decode(receiverKey);
     let authKey;
     try {
@@ -521,7 +537,13 @@ function encr(receiverKey) {
                         salt)
         .then(options => {
                 // If we have VAPID info, fetch it.
-                let vapid_headers = get("vapidHeaders");
+                try {
+                    if (vapid_headers == undefined) {
+                        vapid_headers = JSON.parse(get("vapidHeaders"));
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch VAPID headers", e);
+                }
                 if (vapid_headers) {
                     vapid_headers = JSON.parse(vapid_headers);
                 }
@@ -571,21 +593,27 @@ function encr(receiverKey) {
                 console.log(rawStr);
 
                 // outStr is the styled version, which is easier for humans
-                enc_content = 'keyid=p256dh;dh=<span class="senderKey">' +
-                    options.dh + '</span>'
+                enc_content = `keyid=p256dh;dh=<span class="senderKey" ` +
+                    `title="The public key we used to encrypt">` +
+                    options.dh + `</span>`
                 outStr += `\ncurl -v -X ${options.method} ` +
-                    ` <span class="endpoint">${options.endpoint}</span> `;
+                    ` <span class="endpoint" ` +
+                   `title="The subscription endpoint"` +
+                   `>${options.endpoint}</span> `;
                 if (options.encr_header == "crypto-key" && vapid_headers) {
                     // add the vapid info
-                    enc_content += ',<span class="vapidHeader">' +
-                        vapid_headers["crypto-key"] + '</span>';
-                    outStr += ` -H "Authorization: <span class="vapidHeader">` +
+                    enc_content += `,<span class="vapidHeader" ` +
+                        `title="a VAPID header">` +
+                        vapid_headers["crypto-key"] + `</span>`;
+                    outStr += ` -H "Authorization: <span class="vapidHeader"` +
+                        ` title="a VAPID header">` +
                         `${vapid_headers.authorization}</span>"`;
                 }
 
                 outStr += ` -H "${options.encr_header}: ${enc_content}"`;
-                outStr += ' -H "encryption: keyid=p256dh;salt=<span ' +
-                    `class="salt">${base64url.encode(options.salt)}</span>"`;
+                outStr += ` -H "encryption: keyid=p256dh;salt=<span ` +
+                    `class="salt" title="The salt value we used to `+
+                    `encrypt">${base64url.encode(options.salt)}</span>"`;
                 outStr += ` -H "content-encoding: ${options.content_type}"`;
                 outStr += ' -H "TTL: 60"';
                 outStr += ' --data-binary @encrypted.data';
@@ -611,11 +639,15 @@ function encr(receiverKey) {
 }
 
 
-document.getElementById('encrypt').onclick = function(event) {
+function do_encrypt(event, vapidHeaders) {
     reset();
-    encr(get('receiverKey'));
-
+    if (! vapidHeaders) {
+        vapidHeaders = get('vapidHeaders');
+    }
+    encrypt(get('receiverKey'), vapidHeaders);
 }
+
+document.getElementById('encrypt').onclick = do_encrypt;
 
 document.getElementById('newSalt').onclick = function(event) {
     reset();
@@ -630,17 +662,21 @@ navigator.serviceWorker.addEventListener('message', function(event) {
         let source = get("data");
         notify("Got message", event.data.content);
         show_ok(true, event.data.content);
+        if (window.QA_MODE) {
+            document.getElementById("ring").play();
+        }
     }
 });
 
 
 function init_vapid(){
     // Vapid should ALWAYS use it's own key set.
-    vapid.generate_keys().then( function() {
-        vapid.export_private_der()
+    vapid.generate_keys().then(keys => {
+        let exporter = new DERLite();
+        exporter.export_private_der(keys.privateKey)
             .then(k => output("vapidPrivate", k))
             .catch(err=> console.error(err));
-        vapid.export_public_der()
+        exporter.export_public_der(keys.publicKey)
             .then(k => {
                 output("vapidPublic", k);
             })
@@ -660,7 +696,6 @@ function init_vapid(){
     });
     document.getElementById('signToken').addEventListener('click', function(event) {
         sign_token(event);
-        reset();
     });
 }
 
@@ -674,7 +709,7 @@ function add_vapid(event) {
     let claims = {};
     let vapid_err = "";
     for (let i of vapid_items){
-        if (! i.value) {
+        if (i.classList.contains('required') && ! i.value) {
             console.error(`VAPID value "${i.name}" is empty. Can't proceed`);
             i.classList.add("error");
             vapid_err += `${i.name} cannot be empty.<br>`;
@@ -688,7 +723,13 @@ function add_vapid(event) {
         return false;
     }
     vapid.sign(claims).then(headers => {
-            output("vapidHeaders", JSON.stringify(headers, null, '   '))
+            delete(headers.publicKey);
+            let jheaders = JSON.stringify(headers);
+            output("vapidHeaders", JSON.stringify(headers, null, '    '));
+            // We don't really need to do a full message re-encryption here,
+            // but this is the easiest way to inject the VAPID headers into
+            // the demo send.
+            do_encrypt(vapidHeaders=headers);
         })
         .catch(err => {console.error(err)});
 }
@@ -786,11 +827,11 @@ function preflight(){
 }
 
 
-preflight();
-
-
+var mzcc = new MozCommon();
+var vapid = new VapidToken(mzcc=mzcc);
 var QA_MODE = false;
 
+preflight();
 
 if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     // QA mode, ACTIVATE!

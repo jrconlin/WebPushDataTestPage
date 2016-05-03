@@ -9,7 +9,11 @@ function output(target, value) {
     }
     try {
         let t = document.getElementsByName(target)[0];
-        if (t.attributes.hasOwnProperty('value')) {
+        if (t instanceof HTMLInputElement) {
+            t.value = value;
+            return;
+        }
+        if (t instanceof HTMLTextAreaElement) {
             t.value = value;
             return;
         }
@@ -22,11 +26,13 @@ function output(target, value) {
 
 function get(target) {
     let t = document.getElementsByName(target)[0];
-    try {
+    if (t instanceof HTMLInputElement) {
         return t.value;
-    } catch (TypeError) {
-        return t.innerHTML;
     }
+    if (t instanceof HTMLTextAreaElement) {
+        return t.value;
+    }
+    return t.innerHTML;
 
 }
 
