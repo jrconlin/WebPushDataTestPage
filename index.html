@@ -80,8 +80,71 @@
         <div name="authKey" class="value authKey"></div>
     </div>
     </div>
+    <div class="section">
+    <h2>2. Generate the Content</h2>
+    <p>These are normally the things you enter for each encrypted push message.</p>
+    <div id="salt">
+    <div class="title">Salt:</div>
+    <div class="description">The salt is an array of 16 random bytes that the
+        App Server generates for each outbound encrypted request.
+        This should change for every request, but it can be helpful for
+        library authors to see the same salt value.</div>
+    <input name="salt" class="salt value" value="salt">
+    <button id="newSalt">New Salt</button>
+    </div>
+    <div id="data">
+    <div class="title">Data:</div>
+    <div class="description">This is your data. For this demonstration, we're going
+    to presume that it's a string, but the data can be
+    <a href="https://w3c.github.io/push-api/#pushmessagedata-interface">any format</a>.
+    Just be sure that the service worker 'push' event handler knows how to read it.</div>
+    <textarea name="data">This is test data.
+</textarea>
+    <div class="data_ok hidden">All good! The service worker managed to get
+        and understand the data.</div>
+    <div class="errMsg hidden">No good. There was a problem with the service worker
+        handling the data.<br>
+        Check the console and retry to see if it's still a problem.
+        Also try Copying the "<a href="#send">curl</a>" buffer below into a
+        command line. If things work, this text
+        will turn green.</div>
+    </div>
+    <div class="ctrl">
+    Ok, we're ready to <button id="encrypt" disabled>Encrypt the data</button>
+    </div>
+</div>
+<div class="section reset">
+    <h2>3. Generate the Local Key:</h2>
+    <p>These items (plus the <span class="salt">Salt</span>) are unique per
+    encryption, and usually generated "on the fly" by the various algorithms.
+    Key negotiation requires the generation of a <b class="senderKey">Local Key</b>.
+    The <b>Local Key</b> is an arbitrary key pair made for this specific
+    exchange and used to derive bits from the <b class="receiverKey">p256dh</b> key.
+    </p>
+    <div id="senderKeyPri">
+        <div class="title">Local Key (private):</div>
+        <div class="description">The private portion of the Local Key.
+        Unfortunately, it's not easy to read this from a provided value.
+        </div>
+        <div name="senderKeyPri" class="value wrap"></div>
+    </div>
+    <div id="senderKeyPub">
+        <div class="title">Local Key (public):</div>
+        <div class="description">This key is temporary, but the public key needs to be
+        sent as the <span class="def">Encryption Key</span></div>
+        <div name="senderKeyPub" class="value"></div>
+    </div>
+    <div id="senderKey">
+        <div class="title">Local Key (public, raw):</div>
+        <div class="description">This is the same public
+            <b class="senderKey">local key</b>,
+            only formatted in "raw" form. This is the byte array that
+            is used for deriving the <span class="nonce">nonce</span></div>
+        <div name="senderKey" class="value senderKey"></div>
+    </div>
+</div>
 <div class="section">
-    <h2>2. Add VAPID data</h2>
+    <h2>4. Add VAPID data</h2>
     <p>VAPID is an optional header block that allows senders to "self identify". It consists of a
     <a href="https://jwt.io">JSON Web Token</a> that contains identification claims.
     <div id="vapidClaims">
@@ -90,7 +153,7 @@
             <label for="aud"><b>aud:</b> Audience: The URL for your site</label><br>
             <input class="item" name="aud" type="url" autocomplete="url" placeholder="http://example.com"><br>
             <label for="sub"><b>sub:</b> Subscriber: The contact email address for the owner of this subscription</label><br>
-            <input class="item" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
+            <input class="item required" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
             <label for="exp"><b>exp:</b> Expiration: When this token expires (Max is 24 hours from now)</label><br>
             <input class="item" name="exp" id="vapid_exp" disabled=true><br>
         </div>
@@ -132,69 +195,6 @@
         </div>
     </div>
   </div>
-</div>
-    <div class="section">
-    <h2>3. Generate the Content</h2>
-    <p>These are normally the things you enter for each encrypted push message.</p>
-    <div id="salt">
-    <div class="title">Salt:</div>
-    <div class="description">The salt is an array of 16 random bytes that the
-        App Server generates for each outbound encrypted request.
-        This should change for every request, but it can be helpful for
-        library authors to see the same salt value.</div>
-    <input name="salt" class="salt value" value="salt">
-    <button id="newSalt">New Salt</button>
-    </div>
-    <div id="data">
-    <div class="title">Data:</div>
-    <div class="description">This is your data. For this demonstration, we're going
-    to presume that it's a string, but the data can be
-    <a href="https://w3c.github.io/push-api/#pushmessagedata-interface">any format</a>.
-    Just be sure that the service worker 'push' event handler knows how to read it.</div>
-    <textarea name="data">This is test data.
-</textarea>
-    <div class="data_ok hidden">All good! The service worker managed to get
-        and understand the data.</div>
-    <div class="errMsg hidden">No good. There was a problem with the service worker
-        handling the data.<br>
-        Check the console and retry to see if it's still a problem.
-        Also try Copying the "<a href="#send">curl</a>" buffer below into a
-        command line. If things work, this text
-        will turn green.</div>
-    </div>
-    <div class="ctrl">
-    Ok, we're ready to <button id="encrypt" disabled>Encrypt the data</button>
-    </div>
-</div>
-<div class="section reset">
-    <h2>4. Generate the Local Key:</h2>
-    <p>These items (plus the <span class="salt">Salt</span>) are unique per
-    encryption, and usually generated "on the fly" by the various algorithms.
-    Key negotiation requires the generation of a <b class="senderKey">Local Key</b>.
-    The <b>Local Key</b> is an arbitrary key pair made for this specific
-    exchange and used to derive bits from the <b class="receiverKey">p256dh</b> key.
-    </p>
-    <div id="senderKeyPri">
-        <div class="title">Local Key (private):</div>
-        <div class="description">The private portion of the Local Key.
-        Unfortunately, it's not easy to read this from a provided value.
-        </div>
-        <div name="senderKeyPri" class="value wrap"></div>
-    </div>
-    <div id="senderKeyPub">
-        <div class="title">Local Key (public):</div>
-        <div class="description">This key is temporary, but the public key needs to be
-        sent as the <span class="def">Encryption Key</span></div>
-        <div name="senderKeyPub" class="value"></div>
-    </div>
-    <div id="senderKey">
-        <div class="title">Local Key (public, raw):</div>
-        <div class="description">This is the same public
-            <b class="senderKey">local key</b>,
-            only formatted in "raw" form. This is the byte array that
-            is used for deriving the <span class="nonce">nonce</span></div>
-        <div name="senderKey" class="value senderKey"></div>
-    </div>
 </div>
 <div class="section reset">
     <h2>5. Encrypt the Message:</h2>
@@ -295,6 +295,7 @@
 </div>
   </body>
   <script src="common.js"></script>
+  <script src="der_lite.js"></script>
   <script src="base64.js"></script>
   <script src="webpush.js"></script>
   <script src="vapid.js"></script>
@@ -486,7 +487,7 @@ function reset() {
 }
 
 
-function encr(receiverKey) {
+function encr(receiverKey, vapid_headers) {
     /* Fetch & fill various fields, attempt to create a message and send
        it to yourself.
     */
@@ -521,7 +522,9 @@ function encr(receiverKey) {
                         salt)
         .then(options => {
                 // If we have VAPID info, fetch it.
-                let vapid_headers = get("vapidHeaders");
+                if (vapid_headers == undefined) {
+                    vapid_headers = get("vapidHeaders");
+                }
                 if (vapid_headers) {
                     vapid_headers = JSON.parse(vapid_headers);
                 }
@@ -611,11 +614,15 @@ function encr(receiverKey) {
 }
 
 
-document.getElementById('encrypt').onclick = function(event) {
+function do_encrypt(event, vapidHeaders) {
     reset();
-    encr(get('receiverKey'));
-
+    if (! vapidHeaders) {
+        vapidHeaders = get('vapidHeaders');
+    }
+    encr(get('receiverKey'), vapidHeaders);
 }
+
+document.getElementById('encrypt').onclick = do_encrypt;
 
 document.getElementById('newSalt').onclick = function(event) {
     reset();
@@ -636,11 +643,12 @@ navigator.serviceWorker.addEventListener('message', function(event) {
 
 function init_vapid(){
     // Vapid should ALWAYS use it's own key set.
-    vapid.generate_keys().then( function() {
-        vapid.export_private_der()
+    vapid.generate_keys().then(keys => {
+        let exporter = new DERLite();
+        exporter.export_private_der(keys.privateKey)
             .then(k => output("vapidPrivate", k))
             .catch(err=> console.error(err));
-        vapid.export_public_der()
+        exporter.export_public_der(keys.publicKey)
             .then(k => {
                 output("vapidPublic", k);
             })
@@ -674,7 +682,7 @@ function add_vapid(event) {
     let claims = {};
     let vapid_err = "";
     for (let i of vapid_items){
-        if (! i.value) {
+        if (i.classList.contains('required') && ! i.value) {
             console.error(`VAPID value "${i.name}" is empty. Can't proceed`);
             i.classList.add("error");
             vapid_err += `${i.name} cannot be empty.<br>`;
@@ -688,7 +696,9 @@ function add_vapid(event) {
         return false;
     }
     vapid.sign(claims).then(headers => {
-            output("vapidHeaders", JSON.stringify(headers, null, '   '))
+            let jheaders = JSON.stringify(headers, null, '    ');
+            output("vapidHeaders", jheaders);
+            do_encrypt(vapidHeaders=jheaders);
         })
         .catch(err => {console.error(err)});
 }
@@ -786,11 +796,11 @@ function preflight(){
 }
 
 
-preflight();
-
-
+var mzcc = new MozCommon();
+var vapid = new VapidToken(mzcc=mzcc);
 var QA_MODE = false;
 
+preflight();
 
 if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     // QA mode, ACTIVATE!
