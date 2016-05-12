@@ -88,4 +88,3 @@ class MozCommon {
         return this.toUrlBase64("\x04" + xv + yv);
     }
 }
-

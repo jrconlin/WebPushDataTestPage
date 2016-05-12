@@ -14,7 +14,6 @@ try {
     var webCrypto = window.crypto.subtle;
 }
 
-
 class VapidToken {
     constructor(aud, sub, exp, lang, mzcc) {
         /* Construct a base VAPID token.
@@ -144,7 +143,7 @@ class VapidToken {
     sign(claims) {
         /* Sign a claims object and return the headers that can be used to
          * decrypt the string.
-         *         *
+         *
          * :param claims: An object containing the VAPID claims.
          * :returns: a promise containing an object identifying the headers
          * and values to include to specify VAPID auth.

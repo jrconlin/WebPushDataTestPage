@@ -82,7 +82,7 @@
 
 
 
-  function encrypt(senderKey, sub, data, salt) {
+  function wp_encrypt(senderKey, sub, data, salt) {
     /* Encrypt the data using the temporary, locally generated key,
      * the remotely shared key, and a salt value
      *
@@ -92,7 +92,7 @@
      * @param data          The data to encrypt
      * @param authSecret    Auth Secret provided by the client
      */
-    console.debug("calling encrypt(", senderKey, sub, salt, data, ")");
+    console.debug("calling wp_encrypt(", senderKey, sub, salt, data, ")");
     let headerType;
     let contentType;
 
@@ -332,7 +332,7 @@
         console.debug("Sender Key", senderKey);
         // encode all the data as chunks
         return Promise.allMap({
-          payload: encrypt(senderKey,
+          payload: wp_encrypt(senderKey,
                            subscription,
                            data,
                            salt),
