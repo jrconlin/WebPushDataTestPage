@@ -362,16 +362,16 @@ function show_err(errMsg) {
 }
 
 
-function register() {
+function register(appServerKey) {
     /* Register the service worker.
        Remember, the service worker script must be served either from
        "localhost" or from a TLS secured site (e.g. https://example.com)
 
      */
-    navigator.serviceWorker.getRegistration()
+    return navigator.serviceWorker.getRegistration()
     .then( function(registration) {
         if (!registration || !navigator.serviceWorker.controller) {
-            navigator.serviceWorker.register("sw.js")
+            return navigator.serviceWorker.register("sw.js")
             .then(function() {
                 console.log("Service worker loaded, reloading");
                 window.location.reload();
@@ -387,7 +387,7 @@ function register() {
             });
         }
         if (window.QA_MODE) {
-            subscribe()
+            return subscribe(appServerKey);
         }
         return registration;
     })
@@ -399,14 +399,14 @@ function register() {
 }
 
 
-function subscribe() {
+function subscribe(appServerKey) {
     /* Fetch an endpoint.
 
        Yes, this could be a continuation of the above. I've broken it out
        a little purely to make the page a little less "magical" about what
        it's doing.
     */
-    let info = navigator.serviceWorker.getRegistration()
+    return navigator.serviceWorker.getRegistration()
         .then( function(registration){
             /* The service worker script has been loaded, so
                now we need to register for an endpoint.
@@ -415,14 +415,23 @@ function subscribe() {
                time that you ever load a given app or page.
 
             */
+            function resubscribe() {
+                return registration.pushManager.subscribe({
+                    // Set this to be "true" if you're only displaying
+                    // the data to the user. Set it to "false" if you
+                    // want to use this notification internally and not
+                    // display a message.
+                    userVisibleOnly: false,
+                    applicationServerKey: appServerKey,
+                });
+            }
             console.debug("Registering...", registration);
             // Get the subscription info.
-            registration.pushManager.subscribe({
-                // Set this to be "true" if you're only displaying
-                // the data to the user. Set it to "false" if you
-                // want to use this notification internally and not
-                // display a message.
-                userVisibleOnly: false,
+            return registration.pushManager.getSubscription().then(subscription => {
+                if (subscription) {
+                    return subscription.unsubscribe().then(resubscribe);
+                }
+                return resubscribe();
             })
             .then(function(subscription_info) {
                 if (! subscription_info.endpoint) {
@@ -461,14 +470,20 @@ function subscribe() {
                     console.warn("Crypto-Key support unavailable.");
                 }
                 document.getElementById("encrypt").disabled = false;
+
+                window.subscription_info = subscription_info;
                 if (window.QA_MODE) {
-                    encrypt(rkey);
+                    return vapid.sign({
+                        aud: "http://example.com",
+                        sub: "mailto:admin@example.com",
+                    }).then(headers => {
+                        delete(headers.publicKey);
+                        return encrypt(rkey, JSON.stringify(headers));
+                    }).then(_ => subscription_info);
                 }
+
                 return subscription_info;
 
-            })
-            .then(function(info) {
-                window.subscription_info = info;
             })
             .catch(function(err) {
                 console.error("ERROR: ", err);
@@ -530,11 +545,11 @@ function encrypt(receiverKey, vapid_headers) {
         console.warn("Crypto-Key support unavailable.");
     }
 
-    var encr = webpush({endpoint: endpoint,
-                        receiverKey: rKey,
-                        authKey: authKey},
-                        data,
-                        salt)
+    return webpush({endpoint: endpoint,
+                    receiverKey: rKey,
+                    authKey: authKey},
+                    data,
+                    salt)
         .then(options => {
                 // If we have VAPID info, fetch it.
                 try {
@@ -621,15 +636,21 @@ function encrypt(receiverKey, vapid_headers) {
                 output('odata', ebody);
                 //var blob = new Blob([cbody],
                 //    {type: 'application/octet-binary'});
-                var send_options = options;
+                if (vapid_headers) {
+                    Object.keys(vapid_headers).forEach(name => {
+                        let headers = options.headers.getAll(name);
+                        headers.push(vapid_headers[name]);
+                        options.headers.set(name, headers.join(","));
+                    });
+                }
                 let refresh = document.getElementById('refresh');
                 refresh.onclick=function() {
-                    send(send_options);
+                    send(options);
                 }
                 refresh.disabled=false;
                 show_ok(true, false);
                 if (window.QA_MODE) {
-                    send(send_options);
+                    return send(options);
                 }
 
               })
@@ -671,24 +692,6 @@ navigator.serviceWorker.addEventListener('message', function(event) {
 
 function init_vapid(){
     // Vapid should ALWAYS use it's own key set.
-    vapid.generate_keys().then(keys => {
-        let exporter = new DERLite();
-        exporter.export_private_der(keys.privateKey)
-            .then(k => output("vapidPrivate", k))
-            .catch(err=> console.error(err));
-        exporter.export_public_der(keys.publicKey)
-            .then(k => {
-                output("vapidPublic", k);
-            })
-            .catch(err=>console.error(err));
-        vapid.export_public_raw()
-            .then(k => {
-                output("vapidPublicForDashboard", k);
-           })
-           .catch(err=>console.error(err));
-        }).catch(err => {
-            console.error(err);
-        })
     document.getElementById('vapid_exp').value = parseInt(Date.now()*.001) + 86400;
     document.getElementById('addVapid').addEventListener('click', function(event) {
         add_vapid(event);
@@ -696,6 +699,19 @@ function init_vapid(){
     });
     document.getElementById('signToken').addEventListener('click', function(event) {
         sign_token(event);
+    });
+    return vapid.generate_keys().then(keys => {
+        let exporter = new DERLite();
+        return Promise.all([
+            exporter.export_private_der(keys.privateKey),
+            exporter.export_public_der(keys.publicKey),
+            vapid.export_public_raw(),
+        ]).then(([vapidPrivate, vapidPublic, appServerKey]) => {
+            output("vapidPrivate", vapidPrivate);
+            output("vapidPublic", vapidPublic);
+            output("vapidPublicForDashboard", appServerKey);
+            return mzcc.strToArray(mzcc.fromUrlBase64(appServerKey));
+        });
     });
 }
 
@@ -837,25 +853,23 @@ if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
     // QA mode, ACTIVATE!
     QA_MODE = true;
     console.log("Entering QA mode...");
-    register();
-    subscribe();
+    init_vapid().then(register).catch(e =>
+        show_err("Could not generate VAPID keys: " + e.message)
+    );
 } else {
-    try {
-        init_vapid();
-    } catch (e) {
-        show_err("Could not generate VAPID keys: " + e.message);
-    }
-    if (navigator.serviceWorker.controller == null) {
-        let regButton = document.getElementById('regButton');
-        let regSec = document.getElementById('regSec');
-        regButton.onclick = register;
-        regSec.classList.remove('hidden');
-    } else {
-        register();
-        let subButton = document.getElementById('subscribe');
-        subButton.onclick = subscribe;
-        subButton.disabled = false;
-    }
+    init_vapid().then(appServerKey => {
+        if (navigator.serviceWorker.controller == null) {
+            let regButton = document.getElementById('regButton');
+            let regSec = document.getElementById('regSec');
+            regButton.onclick = () => register(appServerKey);
+            regSec.classList.remove('hidden');
+        } else {
+            let subButton = document.getElementById('subscribe');
+            subButton.onclick = () => subscribe(appServerKey);
+            subButton.disabled = false;
+            return register(appServerKey);
+        }
+    });
 }
   </script>
 <script>
