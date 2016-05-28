@@ -6,8 +6,6 @@
  */
 
   'use strict';
-  var g = window;
-
   // Semi-handy variable defining the encryption data to be
   // Elliptical Curve (Diffie-Hellman) (ECDH) using the p256 curve.
   var P256DH = {
@@ -31,10 +29,10 @@
   //
   try {
       if (webCrypto === undefined) {
-          webCrypto = g.crypto.subtle;
+          webCrypto = window.crypto.subtle;
       }
   } catch (e) {
-      var webCrypto = g.crypto.subtle;
+      var webCrypto = window.crypto.subtle;
   }
 
   // Per the WebPush API, there are known token values that are used for some
@@ -43,20 +41,6 @@
      "Content-Encoding: aesgcm128");
   var NONCE_INFO = new TextEncoder('utf-8').encode("Content-Encoding: nonce");
   var AUTH_INFO = new TextEncoder('utf-8').encode("Content-Encoding: auth\0");
-
-  function textWrap(text, limit) {
-    /* wrap text to a limit by injecting newlines
-     */
-    let tlen = text.length;
-    let buff = ""
-    for (let i=0;i<=tlen;i+=limit) {
-        buff += text.slice(i, Math.min(i+limit, tlen));
-        if (i+limit < tlen) {
-            buff += "\\\n";
-        }
-    }
-    return buff;
-  }
 
   function ensureView(data) {
     /* Coerces data into a Uint8Array */
@@ -98,7 +82,7 @@
 
 
 
-  function encrypt(senderKey, sub, data, salt) {
+  function wp_encrypt(senderKey, sub, data, salt) {
     /* Encrypt the data using the temporary, locally generated key,
      * the remotely shared key, and a salt value
      *
@@ -108,7 +92,7 @@
      * @param data          The data to encrypt
      * @param authSecret    Auth Secret provided by the client
      */
-    console.debug("calling encrypt(", senderKey, sub, salt, data, ")");
+    console.debug("calling wp_encrypt(", senderKey, sub, salt, data, ")");
     let headerType;
     let contentType;
 
@@ -316,10 +300,9 @@
   function webpush(subscription, data, salt) {
     console.debug('data:', data);
     data = ensureView(data);
-    // console.debug(new TextDecoder('utf-8').decode(data))
 
     if (salt == null) {
-        console.debug("Making new salt");
+        console.info("Making new salt");
         salt = newSalt();
         output('salt', salt);
     }
@@ -328,7 +311,7 @@
             true,          // false for production
             ['deriveBits'])
       .then(senderKey => {
-        // Dump the local public key
+        // Display the local key parts.
         // WebCrypto only allows you to export private keys as jwk.
         webCrypto.exportKey('jwk', senderKey.publicKey)
             .then(key=>{
@@ -349,7 +332,7 @@
         console.debug("Sender Key", senderKey);
         // encode all the data as chunks
         return Promise.allMap({
-          payload: encrypt(senderKey,
+          payload: wp_encrypt(senderKey,
                            subscription,
                            data,
                            salt),
