@@ -130,8 +130,8 @@ class VapidToken {
             ext: true,
             key_ops: ["verify"],
             kty: "EC",
-            x: x.replace("=", ""),
-            y: y.replace("=", ""),
+            x: x.replace(/=/g, ""),
+            y: y.replace(/=/g, ""),
         };
 
         return webCrypto.importKey('jwk', jwk, 'ECDSA', true, ["verify"])
