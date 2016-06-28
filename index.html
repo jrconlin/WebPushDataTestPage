@@ -595,7 +595,11 @@ function encrypt(receiverKey, vapid_headers) {
                 let enc_content = 'keyid=p256dh;dh=' + options.dh;
                 if (options.encr_header == "crypto-key" && vapid_headers) {
                     // add the vapid info
-                    enc_content += "," + vapid_headers["crypto-key"];
+                    // Note: technically, these should be separated with a
+                    // ",", however some Push Servers may reject "," as
+                    // an invalid character. You can use ";" and create
+                    // a single record.
+                    enc_content += ";" + vapid_headers["crypto-key"];
                     rawStr += ` -H "Authorization: ` +
                         `${vapid_headers.authorization}" `;
                 }
