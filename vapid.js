@@ -15,13 +15,13 @@ try {
 }
 
 class VapidToken {
-    constructor(aud, sub, exp, lang, mzcc) {
+    constructor(sub, exp, lang, mzcc) {
         /* Construct a base VAPID token.
          *
          * VAPID allows for self identification of a subscription update.
          *
-         * :param aud: Audience - email of the admin contact for this update.
-         * :param sub: Subscription - Optional site URL for this update.
+         * :param sub: Subscription - email of the admin contact for this
+         *      update.
          * :param exp: Expiration - UTC expiration of this update. Defaults
          *      to now + 24 hours
          */
@@ -31,7 +31,6 @@ class VapidToken {
         }
         this.mzcc = mzcc;
         this._claims={};
-        this._claims['aud'] = aud || "";
         if (sub !== undefined) {
             this._claims['sub'] = sub;
         }
@@ -157,8 +156,8 @@ class VapidToken {
         if (! claims.hasOwnProperty("exp")) {
             claims.exp = parseInt(Date.now()*.001) + 86400;
         }
-        if (! claims.hasOwnProperty("aud")) {
-            throw new Error(this.lang.errs.ERR_CLAIM_MIS, "aud");
+        if (! claims.hasOwnProperty("sub")) {
+            throw new Error(this.lang.errs.ERR_CLAIM_MIS, "sub");
         }
         let alg = {name:"ECDSA", namedCurve: "P-256", hash:{name:"SHA-256"}};
         let headStr = this.mzcc.toUrlBase64(

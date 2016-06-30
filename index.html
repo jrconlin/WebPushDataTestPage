@@ -200,11 +200,9 @@
     <div id="vapidClaims">
         <div class="title">VAPID claims</div>
         <div>
-            <label for="aud"><b>aud:</b> Audience: The URL for your site</label><br>
-            <input class="item" name="aud" type="url" autocomplete="url" placeholder="http://example.com"><br>
             <label for="sub"><b>sub:</b> Subscriber: The contact email address for the owner of this subscription</label><br>
             <input class="item required" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
-            <label for="exp"><b>exp:</b> Expiration: When this token expires (Max is 24 hours from now)</label><br>
+            <label for="exp"><b>exp:</b> Expiration: When this VAPID expires (Max is 24 hours from now)</label><br>
             <input class="item" name="exp" id="vapid_exp" disabled=true><br>
         </div>
         <div id="vapidError" class="errMsg"></div>
@@ -474,7 +472,6 @@ function subscribe(appServerKey) {
                 window.subscription_info = subscription_info;
                 if (window.QA_MODE) {
                     return vapid.sign({
-                        aud: "http://example.com",
                         sub: "mailto:admin@example.com",
                     }).then(headers => {
                         delete(headers.publicKey);
