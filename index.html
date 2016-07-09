@@ -414,14 +414,20 @@ function subscribe(appServerKey) {
 
             */
             function resubscribe() {
-                return registration.pushManager.subscribe({
+                var options = {
                     // Set this to be "true" if you're only displaying
                     // the data to the user. Set it to "false" if you
                     // want to use this notification internally and not
                     // display a message.
                     userVisibleOnly: false,
-                    applicationServerKey: appServerKey,
-                });
+                };
+                if (pageQueryParams.has("restricted")) {
+                    // If requested, create a restricted subscription that
+                    // requires VAPID to send push messages to the endpoint.
+                    options.applicationServerKey = appServerKey;
+                }
+
+                return registration.pushManager.subscribe(options);
             }
             console.debug("Registering...", registration);
             // Get the subscription info.
@@ -845,14 +851,14 @@ function preflight(){
 
 
 var mzcc = new MozCommon();
-var vapid = new VapidToken(mzcc=mzcc);
-var QA_MODE = false;
+var vapid = new VapidToken(mzcc);
+var pageQueryParams = new URLSearchParams(window.location.search);
+var QA_MODE = pageQueryParams.has("qa");
 
 preflight();
 
-if (window.location.search.substring(1).split("&").indexOf("qa") > -1) {
+if (QA_MODE) {
     // QA mode, ACTIVATE!
-    QA_MODE = true;
     console.log("Entering QA mode...");
     init_vapid().then(register).catch(e =>
         show_err("Could not generate VAPID keys: " + e.message)
