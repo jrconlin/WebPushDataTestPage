@@ -50,12 +50,6 @@
     Web Debugging Console (Ctrl+Shift+K on Firefox) and note the messages
     being generated in the console log.</p>
 </div>
-    <div id="regSec" class="section hidden">
-    <h2>0. Register the Service Worker:</h2>
-    First, let's register the service worker, since it's
-    not already present.<br>
-    <button id="regButton">Register the Service Worker...</button>
-    </div>
     <div class="section">
     <h2>1. Create a Web PushSubscription:</h2>
     <p>These elements are provided to your web app from the
@@ -384,6 +378,7 @@ function register(appServerKey) {
                 console.error("Error", err);
             });
         }
+        document.getElementById("subscribe").disabled=false;
         if (window.QA_MODE) {
             return subscribe(appServerKey);
         }
@@ -426,72 +421,80 @@ function subscribe(appServerKey) {
                     // requires VAPID to send push messages to the endpoint.
                     options.applicationServerKey = appServerKey;
                 }
+                document.getElementById("subscribe").addEventListener("click", () => {
+                    console.debug("asking permission");
+                    return Notification.requestPermission().then(() => {
+                        registration.pushManager.subscribe(options)
+                        .then(function(subscription_info) {
+                            if (! subscription_info.endpoint) {
+                                console.error("Subscription doesn't have an " +
+                                            "endpoint. Aborting.");
+                                let err = new Error();
+                                err.name = "NoEndpoint";
+                                err.message = "Subscription does not have an endpoint";
+                                throw err;
+                            }
+                            if (! subscription_info.getKey) {
+                                console.error("Subscription doesn't allow " +
+                                            "data encryption. Aborting.");
+                                let err = new Error();
+                                err.name = "NoData";
+                                err.message = "Subscription does not allow data";
+                                throw err;
+                            }
+                            output('endpoint', subscription_info.endpoint);
+                            let rkey =
+                                base64url.encode(subscription_info.getKey('p256dh'));
+                            output('receiverKey', rkey);
+                            output('salt',
+                                base64url.encode(crypto.getRandomValues(
+                                                        new Uint8Array(16))));
+                            try {
+                                // Auth key allows for improved Crypto-Key support.
+                                // However, it's being slowly rolled out.
+                                let authKey = subscription_info.getKey('auth');
+                                output('authKey', base64url.encode(authKey));
+                                if (! authKey) {
+                                    console.warn ("This browser doesn't support auth key. Please update.");
+                                }
+                            } catch (e) {
+                                //throw err;
+                                console.warn("Crypto-Key support unavailable.");
+                            }
+                            document.getElementById("encrypt").disabled = false;
 
-                return registration.pushManager.subscribe(options);
+                            window.subscription_info = subscription_info;
+                            if (window.QA_MODE) {
+                                return vapid.sign({
+                                    sub: "mailto:admin@example.com",
+                                }).then(headers => {
+                                    delete(headers.publicKey);
+                                    return encrypt(rkey, JSON.stringify(headers));
+                                }).then(_ => subscription_info);
+                            }
+
+                            return subscription_info;
+
+                        })
+                        .catch(function(err) {
+                            console.error("ERROR: ", err);
+                            show_err(err.message);
+                        });
+                    });
+                })
             }
             console.debug("Registering...", registration);
             // Get the subscription info.
             return registration.pushManager.getSubscription().then(subscription => {
+                // Drop any previous subscriptions.
                 if (subscription) {
+                    console.debug("Dropping old subscription...");
                     return subscription.unsubscribe().then(resubscribe);
                 }
+                // get a new subscription
                 return resubscribe();
             })
-            .then(function(subscription_info) {
-                if (! subscription_info.endpoint) {
-                    console.error("Subscription doesn't have an " +
-                                  "endpoint. Aborting.");
-                    let err = new Error();
-                    err.name = "NoEndpoint";
-                    err.message = "Subscription does not have an endpoint";
-                    throw err;
-                }
-                if (! subscription_info.getKey) {
-                    console.error("Subscription doesn't allow " +
-                                  "data encryption. Aborting.");
-                    let err = new Error();
-                    err.name = "NoData";
-                    err.message = "Subscription does not allow data";
-                    throw err;
-                }
-                output('endpoint', subscription_info.endpoint);
-                let rkey =
-                    base64url.encode(subscription_info.getKey('p256dh'));
-                output('receiverKey', rkey);
-                output('salt',
-                       base64url.encode(crypto.getRandomValues(
-                                            new Uint8Array(16))));
-                try {
-                    // Auth key allows for improved Crypto-Key support.
-                    // However, it's being slowly rolled out.
-                    let authKey = subscription_info.getKey('auth');
-                    output('authKey', base64url.encode(authKey));
-                    if (! authKey) {
-                        console.warn ("This browser doesn't support auth key. Please update.");
-                    }
-                } catch (e) {
-                    //throw err;
-                    console.warn("Crypto-Key support unavailable.");
-                }
-                document.getElementById("encrypt").disabled = false;
 
-                window.subscription_info = subscription_info;
-                if (window.QA_MODE) {
-                    return vapid.sign({
-                        sub: "mailto:admin@example.com",
-                    }).then(headers => {
-                        delete(headers.publicKey);
-                        return encrypt(rkey, JSON.stringify(headers));
-                    }).then(_ => subscription_info);
-                }
-
-                return subscription_info;
-
-            })
-            .catch(function(err) {
-                console.error("ERROR: ", err);
-                show_err(err.message);
-            });
         })
     .catch(function(err) {
         if (err.name == "SecurityError" || err.name == "NotSupportedError") {
@@ -857,27 +860,15 @@ var QA_MODE = pageQueryParams.has("qa");
 
 preflight();
 
-if (QA_MODE) {
-    // QA mode, ACTIVATE!
-    console.log("Entering QA mode...");
-    init_vapid().then(register).catch(e =>
-        show_err("Could not generate VAPID keys: " + e.message)
-    );
-} else {
-    init_vapid().then(appServerKey => {
-        if (navigator.serviceWorker.controller == null) {
-            let regButton = document.getElementById('regButton');
-            let regSec = document.getElementById('regSec');
-            regButton.onclick = () => register(appServerKey);
-            regSec.classList.remove('hidden');
-        } else {
-            let subButton = document.getElementById('subscribe');
-            subButton.onclick = () => subscribe(appServerKey);
-            subButton.disabled = false;
-            return register(appServerKey);
-        }
-    });
-}
+// According to https://hacks.mozilla.org/2019/11/upcoming-notification-permission-changes-in-firefox-72/
+// notification subscription requests are now tied to a user gesture (clicking a button). That means that
+// QA mode is no longer really useful, and that it's presumed that loading up a service worker is
+// no big deal. To that end, I'm going to always register a service worker and hijack the "Subscribe"
+// button to ask for notification permissions later.
+init_vapid().then(appServerKey => {
+    register(appServerKey);
+    subscribe(appServerKey);
+});
   </script>
 <script>
 (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
