@@ -27,6 +27,7 @@ code {font: 90% "courier new",courier,monospace;}
 .data_ok {color:green;}
 .data_err {color:red;}
 .hidden {display:none;}
+#pushDashboard {display:none;}
 #curl .value .body {font:100% "courier new",courier,monospace;}
 #fakeNotif {border:2px solid black;background-color:#EEE;width:300px;min-height:100px;position:relative;border-radius:5px;box-shadow:4px 4px 4px rgba(120,120,120,120);}
 #fakeNotif .close {position:absolute;top:0;right:0;color:#888;border-radius:5px;width:1em;margin:0;}

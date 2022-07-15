@@ -194,6 +194,8 @@
     <div id="vapidClaims">
         <div class="title">VAPID claims</div>
         <div>
+            <label for="aud"><b>aud:</b> Audience: The origin of the push server machine</label><br>
+            <input class="item required" name="aud" type="url" autocomplete="url" placeholder="http://updates.push.services.mozilla.com"><br>
             <label for="sub"><b>sub:</b> Subscriber: The contact email address for the owner of this subscription</label><br>
             <input class="item required" name="sub" type="url" autocomplete="url" placeholder="mailto:admin@example.com"><br>
             <label for="exp"><b>exp:</b> Expiration: When this VAPID expires (Max is 24 hours from now)</label><br>
@@ -414,7 +416,7 @@ function subscribe(appServerKey) {
                     // the data to the user. Set it to "false" if you
                     // want to use this notification internally and not
                     // display a message.
-                    userVisibleOnly: false,
+                    userVisibleOnly: true,
                 };
                 if (pageQueryParams.has("restricted")) {
                     // If requested, create a restricted subscription that
@@ -443,6 +445,8 @@ function subscribe(appServerKey) {
                                 throw err;
                             }
                             output('endpoint', subscription_info.endpoint);
+                            let aud = new URL(subscription_info.endpoint);
+                            output('aud', aud.origin);
                             let rkey =
                                 base64url.encode(subscription_info.getKey('p256dh'));
                             output('receiverKey', rkey);
@@ -648,9 +652,14 @@ function encrypt(receiverKey, vapid_headers) {
                 //    {type: 'application/octet-binary'});
                 if (vapid_headers) {
                     Object.keys(vapid_headers).forEach(name => {
-                        let headers = options.headers.getAll(name);
-                        headers.push(vapid_headers[name]);
-                        options.headers.set(name, headers.join(","));
+                        if (options.headers.has(name)) {
+                            var combo = [];
+                            combo.push(options.headers.get(name));
+                            combo.push(vapid_headers[name]);
+                            options.headers.set(name, combo.join(","));
+                        } else {
+                            options.headers.set(name, vapid_headers[name]);
+                        }
                     });
                 }
                 let refresh = document.getElementById('refresh');
@@ -741,7 +750,11 @@ function add_vapid(event) {
             vapid_err += `${i.name} cannot be empty.<br>`;
         } else {
             i.classList.remove("error");
-            claims[i.name] = i.value;
+            if (i.name == "exp") {
+                claims[i.name] = parseInt(i.value);
+            } else {
+                claims[i.name] = i.value;
+            }
         }
     }
     document.getElementById("vapidError").innerHTML = vapid_err;
