@@ -491,10 +491,12 @@ function subscribe(appServerKey) {
             // Get the subscription info.
             return registration.pushManager.getSubscription().then(subscription => {
                 // Drop any previous subscriptions.
+                /*
                 if (subscription) {
                     console.debug("Dropping old subscription...");
                     return subscription.unsubscribe().then(resubscribe);
                 }
+                */
                 // get a new subscription
                 return resubscribe();
             })
